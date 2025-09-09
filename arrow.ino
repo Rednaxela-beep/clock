@@ -1,24 +1,24 @@
 // arrow.ino - Фехтование минутной стрелкой ;-)
-int StepsForMinute = -6672;  // Одна минута в полушаговом режиме = теоритически 6245 шагов
+int StepsForMinute = -6345;  // Одна минута в полушаговом режиме = теоритически 6245 шагов
+ArrowState arrowState = IDLE;  // единственное место, где переменная создаётся
 
-void logFSM(DateTime now, ArrowState state) {
-  const char* name = nullptr;
-  switch (state) {
-    case IDLE:   name = "IDLE"; break;
-    case MOVING: name = "MOVING"; break;
-    case LAG:    name = "CORRECTING_LAG"; break;
-    case BREAK:  name = "WAITING_FOR_ZERO"; break;
-  }
-  Serial.printf("[%02d:%02d:%02d] ↩️ FSM: %s\n", now.hour(), now.minute(), now.second(), name);
-}
+// void logFSM(DateTime now, ArrowState state) {
+//   const char* name = nullptr;
+//   switch (state) {
+//     case IDLE:   name = "IDLE"; break;
+//     case MOVING: name = "MOVING"; break;
+//     case LAG:    name = "CORRECTING_LAG"; break;
+//     case BREAK:  name = "WAITING_FOR_ZERO"; break;
+//   }
+// }
 
 void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microSwitchState) {
-  static int lastRtcMinute = -1;
-  static int stepCounter = 0;
-  static ArrowState lastState = IDLE;
+    static int lastRtcMinute = -1;
+    static int stepCounter = 0;
+    static ArrowState lastState = IDLE; // локальная статическая — ок
 
-  if (arrowState != lastState) {
-    logFSM(now, arrowState);
+  if (arrowState != lastState) { // arrowState здесь НЕ объявляем! Используем глобальный
+//    logFSM(now, arrowState);
     lastState = arrowState;
   }
 
@@ -36,19 +36,19 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
     stepper.disableOutputs();      // отключаем питание
 
     if (rtcMinute == 59) {
-      arrowState = IDLE;
+      SET_STATE(IDLE, now);
       Serial.println("✅ Концевик на 59-й минуте → стоп и IDLE");
       return;
     }
  
     if (rtcMinute == 29) { // Нормальное срабатывание на 29-й минуте (второй кулачок)
-        arrowState = IDLE;
+        SET_STATE(IDLE, now);
         Serial.println("✅ Концевик на 29-й минуте → стоп и IDLE");
         return;
     }
 
     if (rtcMinute >= 50 && rtcMinute <= 58) { // Пришли в точку 59 раньше
-      arrowSt66ate = BREAK;
+      SET_STATE(BREAK, now);
       Serial.println("🥊 Опережение → стрелка в точке 59, ждём наступления 59-й минуты");
       return;
     }
@@ -57,7 +57,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       int missedMinutes = rtcMinute + 1;
       int correctionSteps = StepsForMinute * missedMinutes;
       stepper.moveTo(correctionSteps);
-      arrowState = LAG;
+      SET_STATE(LAG, now);
       Serial.printf("⏳ LAG: стрелка отстала на %d мин → %d шагов\n", missedMinutes, correctionSteps);
       return;
     }
@@ -74,7 +74,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
         lastRtcMinute = rtcMinute;
         stepper.setCurrentPosition(0);
         stepper.moveTo(StepsForMinute);
-        arrowState = MOVING;
+        SET_STATE(MOVING, now);
         Serial.printf("▶️ Переход на минуту %02d\n", rtcMinute);
       }
       break;
@@ -88,14 +88,14 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
     case LAG:
       if (stepper.distanceToGo() == 0) {
         stepper.disableOutputs();
-        arrowState = IDLE;
+        SET_STATE(IDLE, now);
         Serial.println("✅ LAG завершён — стрелка догнала");
       }
       break;
 
     case BREAK:
       if (rtcMinute == 59) {
-        arrowState = IDLE;
+        SET_STATE(IDLE, now);
         Serial.println("🕘 BREAK завершён → наступила 59-я минута, переходим в IDLE");
       }
       break;
