@@ -2,6 +2,7 @@
 // arrow.ino перевод стрелок
 // wifi.ino подключение по WiFi и синхронизации времени (RTC)
 // chimes.ino Бой молоточком
+#include "debug.h"
 #include <WiFi.h>
 #include <ESP32Servo.h>
 Servo sg90;
@@ -21,13 +22,7 @@ AccelStepper stepper(AccelStepper::HALF4WIRE, IN1, IN3, IN2, IN4);  // HALF4WIRE
 #include "arrow.h"
 const int microSw_PIN = D7;    // Второй контакт микрика
 const int debounceDelay = 50;  // Антидребезг, миллисекунд
-bool lastStableState = LOW;    // В свбодном состоянии микрик зпмкнут на GND - LOW
-int lastReading = LOW;
-unsigned long lastDebounceTime = 0;
-bool microSwTriggered = false;  // глобальный флаг срабатывания микрика, сбрасывается после обработки
 
-//
-int arrowMinute = -1;         // Положение стрелки (в минутах)
 int lastRtcMinute = -1;       // Сохраняем предыдущую минуту для сравнения
 bool syncedThisHour = false;  // Чтобы синхронизировать только один раз в нужную минуту
 
@@ -42,9 +37,8 @@ void setup() {
     delay(50);     // 🧘 Даем шине стабилизироваться
   bool rtcReady = false;  // Для RTC модуля
   // Параметры движения стрелки
-  stepper.setMaxSpeed(900.0);          // Макс.скорость шаговика в шагах/сек в полушаговом режиме
+  stepper.setMaxSpeed(800.0);          // Макс.скорость шаговика в шагах/сек в полушаговом режиме
   stepper.setAcceleration(350.0);      // Ускорение в шагах/сек²
-  pinMode(microSw_PIN, INPUT_PULLUP);  // Сигнал от НЗ микрика. LOW → HIGH каждые полчаса
 
   delay(100);       // 🧘 Дать шине стабилизироваться перед RTC
   for (int i = 0; i < 3; i++) {
@@ -63,7 +57,6 @@ void setup() {
 
   delay(250);                  // даём IDE время подключиться
   DateTime now = syncRTC();    // читаем актуальное значение
-  arrowMinute = now.minute();  // 🧭 Полагаем, что стрелка уже выставлена на текущее время
   arrowState = IDLE;           // и пожтому не нужно никуда ехать
   Serial.printf("✅ Старт завершён. 🕰️ Текущее время RTC: %02d:%02d:%02d %02d.%02d.%04d\n",
                 now.hour(), now.minute(), now.second(),
@@ -77,7 +70,7 @@ void loop() {
   DateTime now = rtc.now();
   int rtcMinute = now.minute();  // Текущее время RTC
   int currentSecond = now.second();
-  bool microSwitchState = digitalRead(microSw_PIN) == LOW;
+  bool microSwitchState = microSw();
 
   int hour = now.hour() % 12;  // Вычисляем час
   hour = (hour == 0) ? 12 : hour;
@@ -89,8 +82,16 @@ void loop() {
       arrowState = IDLE;  //
       stepper.disableOutputs();
     }
-//  }
-microSw();  // Обработка срабатываний концевика стрелок
+//  microSw();  // Обработка срабатываний концевика стрелок
 handleHourlySync(now); // Синхронизация каждый час. Определена в wifi.ino
-arrowFSM_update(now, arrowMinute, rtcMinute, currentSecond, microSwitchState);
+arrowFSM_update(now, rtcMinute, currentSecond, microSwitchState);
+
+if (Serial.available()) { // Вывод переменных по команде
+  char c = Serial.read();
+  if (c == 'd') {  // например, по символу 'd'
+    DateTime now = rtc.now();
+    debugDump(now, microSwitchState);
+  }
+}
+
 }
