@@ -37,9 +37,9 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       return;
     }
 
-    if (rtcMinute == 29) {  // Нормальное срабатывание на 29-й минуте (второй кулачок)
-      SET_STATE(IDLE, now);
-      Serial.println("✅ Концевик на 29-й минуте → стоп и IDLE");
+    if (rtcMinute >= 27 && rtcMinute <= 29) {
+      SET_STATE(BREAK, now);  // ждём 30-й минуты
+      Serial.printf("⏸ Второй кулачок на %d-й минуте → ждём 30-ю минуту\n", rtcMinute);
       return;
     }
 
@@ -90,56 +90,58 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       break;
 
     case BREAK:
-      if (rtcMinute == 0) {
+      // Ждём либо начала часа, либо середины
+      if (rtcMinute == 0 || rtcMinute == 30) {
         SET_STATE(IDLE, now);
-        Serial.println("🕘 BREAK завершён → наступила 00-я минута, переходим в IDLE");
+        Serial.printf("🕘 BREAK завершён → наступила %02d-я минута, переходим в IDLE\n", rtcMinute);
       }
       break;
   }
+}
 
-  bool microSw() {
-    // Чтобы функция была доступна из других модулей, используем значения из config.h
-    // Если у тебя пока в config.h нет этих констант — добавь:
-    //   #define MICROSW_PIN D7
-    //   #define DEBOUNCE_DELAY 50
+bool microSw() {
+  // Чтобы функция была доступна из других модулей, используем значения из config.h
+  // Если у тебя пока в config.h нет этих констант — добавь:
+  //   #define MICROSW_PIN D7
+  //   #define DEBOUNCE_DELAY 50
 
-    static int lastReading = LOW;
-    static int lastStableState = LOW;
-    static unsigned long lastDebounce = 0;
-    static unsigned long triggerStart = 0;
-    static bool armed = false;
+  static int lastReading = LOW;
+  static int lastStableState = LOW;
+  static unsigned long lastDebounce = 0;
+  static unsigned long triggerStart = 0;
+  static bool armed = false;
 
-    int signal = digitalRead(MICROSW_PIN);
-    unsigned long nowMillis = millis();
+  int signal = digitalRead(MICROSW_PIN);
+  unsigned long nowMillis = millis();
 
-    // Антидребезг
-    if (signal != lastReading) {
-      lastDebounce = nowMillis;
-      lastReading = signal;
-    }
+  // Антидребезг
+  if (signal != lastReading) {
+    lastDebounce = nowMillis;
+    lastReading = signal;
+  }
 
-    if ((nowMillis - lastDebounce) > DEBOUNCE_DELAY) {
-      if (signal != lastStableState) {
-        lastStableState = signal;
+  if ((nowMillis - lastDebounce) > DEBOUNCE_DELAY) {
+    if (signal != lastStableState) {
+      lastStableState = signal;
 
-        if (signal == HIGH) {
-          // Взвод: кулачок наехал
-          armed = true;
-          triggerStart = nowMillis;
-          Serial.println("🔘 Взвод концевика");
+      if (signal == HIGH) {
+        // Взвод: кулачок наехал
+        armed = true;
+        triggerStart = nowMillis;
+        Serial.println("🔘 Взвод концевика");
+      } else {
+        // Срабатывание: кулачок соскакивает
+        unsigned long dt = nowMillis - triggerStart;
+        if (armed && (dt >= 1000) && (dt <= 300000)) {
+          Serial.println("🔘 Концевик сработал!");
+          armed = false;
+          return true;  // shot!
         } else {
-          // Срабатывание: кулачок соскакивает
-          unsigned long dt = nowMillis - triggerStart;
-          if (armed && (dt >= 1000) && (dt <= 300000)) {
-            Serial.println("🔘 Концевик сработал!");
-            armed = false;
-            return true;  // shot!
-          } else {
-            Serial.println("🕳️ Игнорируем некорректное срабатывание");
-            armed = false;
-          }
+          Serial.println("🕳️ Игнорируем некорректное срабатывание");
+          armed = false;
         }
       }
     }
-    return false;  // shot не произошёл
   }
+  return false;  // shot не произошёл
+}
