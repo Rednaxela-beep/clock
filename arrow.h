@@ -1,14 +1,21 @@
-// arrow.h
-#include "driver/uart.h"
 #pragma once
-void arrowFSM_update(int arrowMinute, int currentSecond, bool microSwitchHit);
 
-// Объявление глобального состояния (определяется в arrow.ino)
+#include <Arduino.h>
+#include <RTClib.h>
+#include "config.h"   // StepsForMinute, пины/настройки, константы
+
+// Глобальное состояние стрелки
 enum ArrowState {
-  IDLE,     // Ожидание
-  MOVING,   // Двигаем стрелку
-  LAG,      // Корректировка отставания
-  BREAK     // Корректировка спешащей стрелки
+    IDLE,     // Ожидание
+    MOVING,   // Двигаем стрелку
+    LAG,      // Корректировка отставания
+    BREAK     // Ожидание 59-й, если пришли раньше
 };
 
-extern ArrowState arrowState; // только объявление, без инициализации
+extern ArrowState arrowState;
+
+// FSM минутной стрелки
+void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microSwitchState);
+
+// Концевик минутной стрелки (антидребезг + валидация)
+bool microSw();

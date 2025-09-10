@@ -1,0 +1,22 @@
+//config.h Конфигурация пинов и основных переменных 
+#pragma once
+extern int StepsForMinute;
+
+// Пин сервопривода боя
+#define SERVO_PIN D6
+
+// ====== Шаговый мотор стрелок ======
+#define IN1 D3
+#define IN2 D2
+#define IN3 D1
+#define IN4 D0
+
+// Пин микрика
+#define MICROSW_PIN D7
+
+// Антидребезг (мс)
+#define DEBOUNCE_DELAY 50
+
+// Пины I2C для RTC
+#define SDA_PIN 5
+#define SCL_PIN 6

@@ -1,5 +1,4 @@
 // arrow.ino - Фехтование минутной стрелкой ;-)
-int StepsForMinute = -6345;  // Одна минута в полушаговом режиме = теоритически 6245 шагов
 ArrowState arrowState = IDLE;  // единственное место, где переменная создаётся
 
 // void logFSM(DateTime now, ArrowState state) {
