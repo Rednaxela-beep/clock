@@ -69,7 +69,7 @@ void setupMain() {
     DateTime now = syncRTC();    // Читаем актуальное время
     SET_STATE(IDLE, now);        // Начальное состояние FSM
 
-    // webMonitorBegin();    // Инициализация Веб Монитора
+    webMonitorBegin();    // Инициализация Веб Монитора
 
     Serial.printf("✅ Старт завершён. 🕰️ Текущее время RTC: %02d:%02d:%02d %02d.%02d.%04d\n",
                   now.hour(), now.minute(), now.second(),
@@ -106,7 +106,7 @@ void loopMain() {
 
     arrowFSM_update(now, rtcMinute, currentSecond, microSwitchState);     // Обновление FSM стрелок
 
-    // webMonitorLoop();       // Обновление Веб Монитора
+    webMonitorLoop();       // Обновление Веб Монитора
 
     // Отладочный вывод по команде с Serial
     if (Serial.available()) {
