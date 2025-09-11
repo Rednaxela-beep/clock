@@ -24,5 +24,7 @@ inline const char* stateName(ArrowState state) {
     } \
 } while(0)
 
-// Прототип отладочного дампа
-void debugDump(DateTime now, bool microSwitchState);
+void debugDump(DateTime now, bool microSwitchState); // Прототип отладочного дампа
+
+void webMonitorBegin(); // Прототип Веб Монитора
+void webMonitorLoop();

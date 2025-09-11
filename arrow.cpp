@@ -6,7 +6,7 @@
 // Единственное место, где создаётся переменная состояния
 ArrowState arrowState = IDLE;
 
-// Локальные счётчики/состояния FSM
+// Локальные счётчики/состояния конечного автомата
 static int lastRtcMinute = -1;
 static int stepCounter = 0;
 static ArrowState lastState = IDLE;  // локальная "память" смен состояния
@@ -63,7 +63,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
     return;
   }
 
-  // 🎯 Основной FSM
+  // 🎯 Основной конечный автомат
   switch (arrowState) {
     case IDLE:
       if (rtcMinute != lastRtcMinute) {

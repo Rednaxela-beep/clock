@@ -22,5 +22,7 @@ extern bool syncedThisHour;
 void setupMain();
 void loopMain();
 
-// Подключение к Wi‑Fi
-void connectToWiFi();
+void connectToWiFi(); // Подключение к Wi‑Fi
+
+void webMonitorBegin(); // Web Monitor
+void webMonitorLoop(); 

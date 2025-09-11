@@ -41,7 +41,9 @@ void setupMain() {
 
     chimesetup();        // Инициализация молоточка
     connectToWiFi();     // Подключение к WiFi
-
+    
+    webMonitorBegin();    // Инициализация Веб Монитора
+    
     Wire.begin(5, 6);    // Шина RTC: SDA=D4 (GPIO5), SCL=D5 (GPIO6)
     delay(50);           // 🧘 Даем шине стабилизироваться
 
@@ -100,11 +102,11 @@ void loopMain() {
         stepper.disableOutputs();
     }
 
-    // Синхронизация каждый час (определена в wi-fi.cpp)
-    handleHourlySync(now);
+    handleHourlySync(now); // Синхронизация каждый час (определена в wi-fi.cpp)
 
-    // Обновление FSM стрелок
-    arrowFSM_update(now, rtcMinute, currentSecond, microSwitchState);
+    arrowFSM_update(now, rtcMinute, currentSecond, microSwitchState);     // Обновление FSM стрелок
+
+    webMonitorLoop();       // Обновление Веб Монитора
 
     // Отладочный вывод по команде с Serial
     if (Serial.available()) {
