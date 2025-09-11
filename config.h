@@ -2,6 +2,11 @@
 #pragma once
 extern int StepsForMinute;
 
+// Сетевые настройки
+#define WIFI_SSID     "5stars"
+#define WIFI_PASSWORD "Vaio8010"
+#define WEB_PORT      80
+
 // Пин сервопривода боя
 #define SERVO_PIN D6
 

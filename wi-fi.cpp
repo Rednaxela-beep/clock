@@ -9,18 +9,22 @@
 // -----------------------------------------------------------------------------
 // Подключение к Wi‑Fi (устранение 'WiFi' was not declared in this scope и 'WL_CONNECTED' was not declared in this scope)
 // -----------------------------------------------------------------------------
+#include <WiFi.h>
+#include "config.h" // WIFI_SSID, WIFI_PASSWORD
+
 void connectToWiFi() {
-    const char* ssid     = "5stars";
-    const char* password = "Vaio8010";
-
     Serial.print("🔌 Подключаемся к Wi‑Fi: ");
-    Serial.println(ssid);
+    Serial.println(WIFI_SSID);
 
-    WiFi.begin(ssid, password);
+    WiFi.mode(WIFI_STA);              // режим клиента
+    WiFi.setAutoReconnect(true);      // автоматическое переподключение
+    WiFi.persistent(true);            // сохранять настройки в NVS
+
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
     int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-        delay(550);
+    while (WiFi.status() != WL_CONNECTED && attempts < 40) { // 40 × 500мс = 20 сек
+        delay(500);
         Serial.print(".");
         attempts++;
     }

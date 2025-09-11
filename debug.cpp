@@ -20,7 +20,7 @@ static void logStore(const String& line) {
   logIndex = (logIndex + 1) % 50;
 }
 
-// String debugGetLog() {
+String debugGetLog() {
   String out;
   int idx = logIndex;
   for (int i = 0; i < 50; i++) {
@@ -45,15 +45,15 @@ static String uptimeStr() {
 }
 
 // ====== WebServer ======
-static WebServer dbgServer(8080);
+static WebServer dbgServer(80);
 
 void webMonitorBegin() {
   // Главная страница
   dbgServer.on("/", HTTP_GET, []() {
     String html = F(
-      "<!doctype html><html><meta charset='utf-8'><title>ESP32 Monitor</title>"
+      "<!doctype html><html><meta charset='utf-8'><title>Ancient Clock Digital Heart Monitor</title>"
       "<style>body{font-family:sans-serif;margin:20px}pre{background:#111;color:#0f0;padding:8px;height:200px;overflow:auto}</style>"
-      "<h2>ESP32 Clock Monitor</h2>"
+      "<h2>Ancient Clock Digital Heart Monitor</h2>"
       "<div id='status'></div>"
       "<form onsubmit='return setSteps()'>"
       "StepsForMinute: <input id='steps' type='number'><input type='submit' value='Set'>"
