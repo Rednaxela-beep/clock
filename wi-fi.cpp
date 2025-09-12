@@ -13,7 +13,7 @@
 #include "config.h" // WIFI_SSID, WIFI_PASSWORD
 
 void connectToWiFi() {
-    Serial.print("🔌 Подключаемся к Wi‑Fi: ");
+    Serial.print("🔌 Подключаемся к Wi-Fi: ");
     Serial.println(WIFI_SSID);
 
     WiFi.mode(WIFI_STA);              // режим клиента
@@ -73,17 +73,15 @@ DateTime syncRTC() {
             DateTime rtcTime = rtc.now();
             long diff = abs((long)(rtcTime.unixtime() - ntpTime.unixtime()));
 
-            Serial.print("📊 Разница RTC vs NTP: ");
-            Serial.print(diff);
-            Serial.println(" сек");
+            debugLogf("📊 Разница RTC vs NTP: %d сек", diff);
 
             if (diff > 2) {
                 rtc.adjust(ntpTime);
-                Serial.printf("✅ RTC синхронизировано: %02d:%02d:%02d\n",
+                debugLogf("✅ RTC синхронизировано: %02d:%02d:%02d\n",
                               ntpTime.hour(), ntpTime.minute(), ntpTime.second());
                 return ntpTime;
             } else {
-                Serial.println("⏱ RTC уже точное");
+                debugLogf("⏱ RTC уже точное");
                 return rtcTime;
             }
         } else {

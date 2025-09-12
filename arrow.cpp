@@ -14,7 +14,6 @@ static ArrowState lastState = IDLE;  // локальная "память" сме
 void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microSwitchState) {
   // Лог смены состояний (если включено)
   if (arrowState != lastState) {
-    // logFSM(now, arrowState); // можно включить при необходимости
     lastState = arrowState;
   }
 
@@ -22,7 +21,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
   if (arrowState == MOVING || arrowState == LAG) {
     if (stepper.distanceToGo() > 0) {
       stepCounter++;
-      Serial.printf("🦶 Шаг #%d → осталось: %d\n", stepCounter, stepper.distanceToGo());
+      debugLogf("🦶 Шаг #%d → осталось: %d\n", stepCounter, stepper.distanceToGo());
     }
   }
 
@@ -33,19 +32,19 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 
     if (rtcMinute == 59) {
       SET_STATE(IDLE, now);
-      Serial.println("✅ Концевик на 59-й минуте → стоп и IDLE");
+      debugLogf("✅ Концевик на 59-й минуте → стоп и IDLE");
       return;
     }
 
     if (rtcMinute >= 27 && rtcMinute <= 29) {
       SET_STATE(BREAK, now);  // ждём 30-й минуты
-      Serial.printf("⏸ Второй кулачок на %d-й минуте → ждём 30-ю минуту\n", rtcMinute);
+      debugLogf("⏸ Второй кулачок на %d-й минуте → ждём 30-ю минуту\n", rtcMinute);
       return;
     }
 
     if (rtcMinute >= 50 && rtcMinute <= 58) {  // Пришли в точку 59 раньше
       SET_STATE(BREAK, now);
-      Serial.println("🥊 Опережение → стрелка в точке 59, ждём наступления нулевой минуты");
+      debugLogf("🥊 Опережение → стрелка в точке 59, ждём наступления нулевой минуты");
       return;
     }
 
@@ -54,12 +53,12 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       int correctionSteps = StepsForMinute * missedMinutes;
       stepper.moveTo(correctionSteps);
       SET_STATE(LAG, now);
-      Serial.printf("⏳ LAG: стрелка отстала на %d мин → %d шагов\n", missedMinutes, correctionSteps);
+      debugLogf("⏳ LAG: стрелка отстала на %d мин → %d шагов\n", missedMinutes, correctionSteps);
       return;
     }
 
     // Всё остальное
-    Serial.printf("🤷 Микрик сработал на %d-й минуте — нужна ручная корректировка\n", rtcMinute);
+    debugLogf("🤷 Микрик сработал на %d-й минуте — нужна ручная корректировка\n", rtcMinute);
     return;
   }
 
@@ -71,7 +70,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
         stepper.setCurrentPosition(0);
         stepper.moveTo(StepsForMinute);
         SET_STATE(MOVING, now);
-        Serial.printf("▶️ Переход на минуту %02d\n", rtcMinute);
+        debugLogf("▶️ Переход %02d\n", rtcMinute);
       }
       break;
 
@@ -85,7 +84,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       if (stepper.distanceToGo() == 0) {
         stepper.disableOutputs();
         SET_STATE(IDLE, now);
-        Serial.println("✅ LAG завершён — стрелка догнала");
+        debugLogf("✅ LAG завершён — стрелка догнала");
       }
       break;
 
@@ -93,7 +92,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       // Ждём либо начала часа, либо середины
       if (rtcMinute == 0 || rtcMinute == 30) {
         SET_STATE(IDLE, now);
-        Serial.printf("🕘 BREAK завершён → наступила %02d-я минута, переходим в IDLE\n", rtcMinute);
+        debugLogf("🕘 BREAK завершён → наступила %02d-я минута, переходим в IDLE\n", rtcMinute);
       }
       break;
   }
@@ -128,16 +127,16 @@ bool microSw() {
         // Взвод: кулачок наехал
         armed = true;
         triggerStart = nowMillis;
-        Serial.println("🔘 Взвод концевика");
+        debugLogf("🔘 Взвод концевика");
       } else {
         // Срабатывание: кулачок соскакивает
         unsigned long dt = nowMillis - triggerStart;
         if (armed && (dt >= 1000) && (dt <= 300000)) {
-          Serial.println("🔘 Концевик сработал!");
+          debugLogf("🔘 Концевик сработал!");
           armed = false;
           return true;  // shot!
         } else {
-          Serial.println("🕳️ Игнорируем некорректное срабатывание");
+          debugLogf("🕳️ Игнорируем некорректное срабатывание");
           armed = false;
         }
       }

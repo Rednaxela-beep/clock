@@ -31,6 +31,16 @@ String debugGetLog() {
   return out;
 }
 
+void debugLogf(const char *fmt, ...) { // "Обёрточный логгер" - единая точка вывода логов для замены Serial.println
+    char buf[128]; // подбери размер под свои сообщения
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    Serial.print(buf);
+    logStore(String(buf));
+}
+
 // ====== Uptime ======
 static String uptimeStr() {
   unsigned long ms = millis();
@@ -51,9 +61,9 @@ void webMonitorBegin() {
   // Главная страница
   dbgServer.on("/", HTTP_GET, []() {
     String html = F(
-      "<!doctype html><html><meta charset='utf-8'><title>Ancient Clock Digital Heart Monitor</title>"
-      "<style>body{font-family:sans-serif;margin:20px}pre{background:#111;color:#0f0;padding:8px;height:200px;overflow:auto}</style>"
-      "<h2>Ancient Clock Digital Heart Monitor</h2>"
+      "<!doctype html><html><meta charset='utf-8'><title>XIAO ESP32 Monitor</title>"
+      "<style>body{font-family:sans-serif;margin:20px}pre{background:#111;color:#0f0;padding:8px;height:400px;width:500px;overflow:auto;white-space:pre-wrap}</style>"
+      "<h2>Ancient Clock Web Monitor</h2>"
       "<div id='status'></div>"
       "<form onsubmit='return setSteps()'>"
       "StepsForMinute: <input id='steps' type='number'><input type='submit' value='Set'>"
@@ -119,7 +129,7 @@ void webMonitorLoop() {
   dbgServer.handleClient();
 }
 
-// ====== Модифицированный debugDump ======
+// ====== Функция возвращает параметны приложения ======
 void debugDump(DateTime now, bool microSwitchState) {
   String line;
   line = String("🕰 RTC: ") + String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());

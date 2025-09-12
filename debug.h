@@ -3,6 +3,8 @@
 #include <RTClib.h>
 #include "arrow.h" // enum ArrowState и extern arrowState уже здесь
 
+void debugLogf(const char *fmt, ...); // "Обёрточный логгер" - единая точка вывода логов для замены Serial.println
+
 // Функция для получения имени состояния
 inline const char* stateName(ArrowState state) {
     switch (state) {
@@ -17,7 +19,7 @@ inline const char* stateName(ArrowState state) {
 // Макрос для смены состояния с логом
 #define SET_STATE(newState, now) do { \
     if (arrowState != (newState)) { \
-        Serial.printf("[%02d:%02d:%02d] ⚙️ FSM: %s → %s\n", \
+        debugLogf("[%02d:%02d:%02d] ⚙️ FSM: %s → %s\n", \
             (now).hour(), (now).minute(), (now).second(), \
             stateName(arrowState), stateName(newState)); \
         arrowState = (newState); \
