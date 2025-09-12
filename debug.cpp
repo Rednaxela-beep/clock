@@ -12,22 +12,15 @@ extern ArrowState arrowState;
 extern int StepsForMinute;
 
 // ====== Лог буфер ======
-static String logBuffer[50];
-static int logIndex = 0;
+static String lastLogLine;
 
 static void logStore(const String& line) {
-  logBuffer[logIndex] = line;
-  logIndex = (logIndex + 1) % 50;
+  lastLogLine = line;
 }
 
 String debugGetLog() {
-  String out;
-  int idx = logIndex;
-  for (int i = 0; i < 50; i++) {
-    const String& line = logBuffer[idx];
-    if (line.length()) out += line + "\n";
-    idx = (idx + 1) % 50;
-  }
+  String out = lastLogLine;
+  lastLogLine = ""; // сразу очищаем, чтобы не прислать повторно
   return out;
 }
 
@@ -38,13 +31,11 @@ void debugLogf(const char *fmt, ...) {
     vsnprintf(msgBuf, sizeof(msgBuf), fmt, args);
     va_end(args);
 
-    // Получаем текущее время из RTC
     DateTime now = rtc.now();
     char timeBuf[16];
     snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d;", 
              now.hour(), now.minute(), now.second());
 
-    // Склеиваем время и сообщение
     String line = String(timeBuf) + String(msgBuf);
 
     Serial.print(line);
@@ -72,7 +63,7 @@ void webMonitorBegin() {
   dbgServer.on("/", HTTP_GET, []() {
     String html = F(
       "<!doctype html><html><meta charset='utf-8'><title>XIAO ESP32 Monitor</title>"
-      "<style>body{font-family:sans-serif;margin:20px}pre{background:#111;color:#0f0;padding:8px;height:800px;width:500px;overflow:auto;white-space:pre-wrap}</style>"
+      "<style>body{font-family:sans-serif;margin:20px}pre{background:#111;color:#0f0;padding:8px;height:450px;width:550px;overflow:auto;white-space:pre-wrap}</style>"
       "<h2>Ancient Clock Web Monitor</h2>"
       "<div id='status'></div>"
       "<form onsubmit='return setSteps()'>"
