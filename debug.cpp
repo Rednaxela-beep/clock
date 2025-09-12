@@ -31,28 +31,38 @@ String debugGetLog() {
   return out;
 }
 
-void debugLogf(const char *fmt, ...) { // "Обёрточный логгер" - единая точка вывода логов для замены Serial.println
-    char buf[128]; // подбери размер под свои сообщения
+void debugLogf(const char *fmt, ...) {
+    char msgBuf[128];
     va_list args;
     va_start(args, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, args);
+    vsnprintf(msgBuf, sizeof(msgBuf), fmt, args);
     va_end(args);
-    Serial.print(buf);
-    logStore(String(buf));
+
+    // Получаем текущее время из RTC
+    DateTime now = rtc.now();
+    char timeBuf[16];
+    snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d;", 
+             now.hour(), now.minute(), now.second());
+
+    // Склеиваем время и сообщение
+    String line = String(timeBuf) + String(msgBuf);
+
+    Serial.print(line);
+    logStore(line);
 }
 
 // ====== Uptime ======
 static String uptimeStr() {
   unsigned long ms = millis();
-  unsigned long sec = ms / 1000;
-  unsigned long min = sec / 60;
-  unsigned long hr = min / 60;
+  unsigned long min = ms / 60000;        // сразу минуты
+  unsigned long hr  = min / 60;
   unsigned long day = hr / 24;
   char buf[32];
-  snprintf(buf, sizeof(buf), "%lud %02lu:%02lu:%02lu",
-           day, hr % 24, min % 60, sec % 60);
+  snprintf(buf, sizeof(buf), "%lud %02lu:%02lu",
+           day, hr % 24, min % 60);
   return String(buf);
 }
+
 
 // ====== WebServer ======
 static WebServer dbgServer(80);
@@ -62,7 +72,7 @@ void webMonitorBegin() {
   dbgServer.on("/", HTTP_GET, []() {
     String html = F(
       "<!doctype html><html><meta charset='utf-8'><title>XIAO ESP32 Monitor</title>"
-      "<style>body{font-family:sans-serif;margin:20px}pre{background:#111;color:#0f0;padding:8px;height:400px;width:500px;overflow:auto;white-space:pre-wrap}</style>"
+      "<style>body{font-family:sans-serif;margin:20px}pre{background:#111;color:#0f0;padding:8px;height:800px;width:500px;overflow:auto;white-space:pre-wrap}</style>"
       "<h2>Ancient Clock Web Monitor</h2>"
       "<div id='status'></div>"
       "<form onsubmit='return setSteps()'>"
@@ -79,8 +89,10 @@ void webMonitorBegin() {
       "'<b>StepsForMinute:</b> '+j.steps+'<br>' +"
       "'<b>FSM:</b> '+j.state;"
       "document.getElementById('steps').value=j.steps;"
-      "let log=await fetch('/log');"
-      "document.getElementById('log').textContent=await log.text();"
+      "let logElem=document.getElementById('log');"
+      "let newLog=await (await fetch('/log')).text();"
+      "if (!logElem.textContent.endsWith(newLog)) {logElem.textContent += newLog;}"
+      "logElem.scrollTop=logElem.scrollHeight;"
       "}"
       "async function setSteps(){"
       "let val=document.getElementById('steps').value;"

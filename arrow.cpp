@@ -21,7 +21,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
   if (arrowState == MOVING || arrowState == LAG) {
     if (stepper.distanceToGo() > 0) {
       stepCounter++;
-      debugLogf("🦶 Шаг #%d → осталось: %d\n", stepCounter, stepper.distanceToGo());
+      Serial.printf("🦶 Шаг #%d → осталось: %d\n", stepCounter, stepper.distanceToGo());
     }
   }
 
@@ -70,7 +70,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
         stepper.setCurrentPosition(0);
         stepper.moveTo(StepsForMinute);
         SET_STATE(MOVING, now);
-        debugLogf("▶️ Переход %02d\n", rtcMinute);
+        Serial.printf("▶️ Переход %02d\n", rtcMinute);
       }
       break;
 
@@ -84,7 +84,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       if (stepper.distanceToGo() == 0) {
         stepper.disableOutputs();
         SET_STATE(IDLE, now);
-        debugLogf("✅ LAG завершён — стрелка догнала");
+        Serial.printf("✅ LAG завершён — стрелка догнала");
       }
       break;
 
@@ -127,16 +127,16 @@ bool microSw() {
         // Взвод: кулачок наехал
         armed = true;
         triggerStart = nowMillis;
-        debugLogf("🔘 Взвод концевика");
+        Serial.printf("🔘 Взвод концевика");
       } else {
         // Срабатывание: кулачок соскакивает
         unsigned long dt = nowMillis - triggerStart;
         if (armed && (dt >= 1000) && (dt <= 300000)) {
-          debugLogf("🔘 Концевик сработал!");
+          Serial.printf("🔘 Концевик сработал!");
           armed = false;
           return true;  // shot!
         } else {
-          debugLogf("🕳️ Игнорируем некорректное срабатывание");
+          Serial.printf("🕳️ Игнорируем некорректное срабатывание");
           armed = false;
         }
       }

@@ -2,6 +2,10 @@
 #pragma once
 extern int StepsForMinute;
 
+// Параметры движения стрелок
+// #define STEPPER_MAX_SPEED     650.0f   // шагов/сек
+// #define STEPPER_ACCELERATION  350.0f   // шагов/сек²
+
 // Сетевые настройки
 #define WIFI_SSID     "5stars"
 #define WIFI_PASSWORD "Vaio8010"

@@ -1,3 +1,4 @@
+// debug.h
 #pragma once
 #include <Arduino.h>
 #include <RTClib.h>
@@ -19,7 +20,7 @@ inline const char* stateName(ArrowState state) {
 // Макрос для смены состояния с логом
 #define SET_STATE(newState, now) do { \
     if (arrowState != (newState)) { \
-        debugLogf("[%02d:%02d:%02d] ⚙️ FSM: %s → %s\n", \
+        Serial.printf("[%02d:%02d:%02d] ⚙️ FSM: %s → %s\n", \
             (now).hour(), (now).minute(), (now).second(), \
             stateName(arrowState), stateName(newState)); \
         arrowState = (newState); \
