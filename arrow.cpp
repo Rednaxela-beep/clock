@@ -11,8 +11,14 @@ static int lastRtcMinute = -1;
 static int stepCounter = 0;
 static ArrowState lastState = IDLE;  // локальная "память" смен состояния
 
+static bool firstLoop = true; // пропуск первого цикла
 void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microSwitchState) {
-  // Лог смены состояний (если включено)
+    if (firstLoop) {
+        lastRtcMinute = rtcMinute; // синхронизируем
+        firstLoop = false;
+        return; // пропускаем первый цикл
+    }
+ // Лог смены состояний (если включено)
   if (arrowState != lastState) {
     lastState = arrowState;
   }

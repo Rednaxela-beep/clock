@@ -20,33 +20,33 @@ static void logStore(const String& line) {
 
 String debugGetLog() {
   String out = lastLogLine;
-  lastLogLine = ""; // сразу очищаем, чтобы не прислать повторно
+  lastLogLine = "";  // сразу очищаем, чтобы не прислать повторно
   return out;
 }
 
-void debugLogf(const char *fmt, ...) {
-    char msgBuf[128];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(msgBuf, sizeof(msgBuf), fmt, args);
-    va_end(args);
+void debugLogf(const char* fmt, ...) {
+  char msgBuf[128];
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msgBuf, sizeof(msgBuf), fmt, args);
+  va_end(args);
 
-    DateTime now = rtc.now();
-    char timeBuf[16];
-    snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d;", 
-             now.hour(), now.minute(), now.second());
+  DateTime now = rtc.now();
+  char timeBuf[16];
+  snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d;",
+           now.hour(), now.minute(), now.second());
 
-    String line = String(timeBuf) + String(msgBuf);
-
-    Serial.print(line);
-    logStore(line);
+String line = String(timeBuf) + String(msgBuf);
+// + "\n";
+Serial.print(line);
+logStore(line);
 }
 
 // ====== Uptime ======
 static String uptimeStr() {
   unsigned long ms = millis();
-  unsigned long min = ms / 60000;        // сразу минуты
-  unsigned long hr  = min / 60;
+  unsigned long min = ms / 60000;  // сразу минуты
+  unsigned long hr = min / 60;
   unsigned long day = hr / 24;
   char buf[32];
   snprintf(buf, sizeof(buf), "%lud %02lu:%02lu",
@@ -95,7 +95,7 @@ void webMonitorBegin() {
     dbgServer.send(200, "text/html; charset=utf-8", html);
   });
 
-// JSON статус
+  // JSON статус
   dbgServer.on("/status", HTTP_GET, []() {
     char buf[32];
     DateTime now = rtc.now();
@@ -110,7 +110,7 @@ void webMonitorBegin() {
     dbgServer.send(200, "application/json; charset=utf-8", json);
   });
 
-// Лог
+  // Лог
   dbgServer.on("/log", HTTP_GET, []() {
     dbgServer.send(200, "text/plain; charset=utf-8", debugGetLog());
   });
