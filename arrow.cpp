@@ -27,38 +27,38 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 
   // 🐶 Единый сторож микрика в MOVING
   if (arrowState == MOVING && microSwitchState) {
-    stepper.setCurrentPosition(0);  // мгновенная остановка
-    stepper.disableOutputs();       // отключаем питание
+    // stepper.setCurrentPosition(0);  // мгновенная остановка
+    // stepper.disableOutputs();       // отключаем питание
 
     if (rtcMinute == 59) {
-      SET_STATE(IDLE, now);
-      debugLogf("✅ Концевик на 59-й минуте → стоп и IDLE");
+      // SET_STATE(IDLE, now);
+      debugLogf("Концевик на 59-й минуте → стоп и IDLE");
       return;
     }
 
     if (rtcMinute >= 27 && rtcMinute <= 29) {
-      SET_STATE(BREAK, now);  // ждём 30-й минуты
-      debugLogf("⏸ Второй кулачок на %d-й минуте → ждём 30-ю минуту\n", rtcMinute);
+      // SET_STATE(BREAK, now);  // ждём 30-й минуты
+      debugLogf("Второй кулачок на %d-й минуте → ждём 30-ю минуту\n", rtcMinute);
       return;
     }
 
     if (rtcMinute >= 50 && rtcMinute <= 58) {  // Пришли в точку 59 раньше
-      SET_STATE(BREAK, now);
-      debugLogf("🥊 Опережение → стрелка в точке 59, ждём наступления нулевой минуты");
+      // SET_STATE(BREAK, now);
+      debugLogf("Опережение → стрелка в точке 59, ждём наступления нулевой минуты");
       return;
     }
 
     if (rtcMinute >= 0 && rtcMinute <= 2) {  // Отставание — нужно догнать 1–3 минуты
       int missedMinutes = rtcMinute + 1;
       int correctionSteps = StepsForMinute * missedMinutes;
-      stepper.moveTo(correctionSteps);
-      SET_STATE(LAG, now);
-      debugLogf("⏳ LAG: стрелка отстала на %d мин → %d шагов\n", missedMinutes, correctionSteps);
+      // stepper.moveTo(correctionSteps);
+      // SET_STATE(LAG, now);
+      debugLogf("LAG: стрелка отстала на %d мин → %d шагов\n", missedMinutes, correctionSteps);
       return;
     }
 
     // Всё остальное
-    debugLogf("🤷 Микрик сработал на %d-й минуте — нужна ручная корректировка\n", rtcMinute);
+    debugLogf("Микрик сработал на %d-й минуте — нужна ручная корректировка\n", rtcMinute);
     return;
   }
 
@@ -84,7 +84,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       if (stepper.distanceToGo() == 0) {
         stepper.disableOutputs();
         SET_STATE(IDLE, now);
-        Serial.printf("✅ LAG завершён — стрелка догнала");
+        Serial.printf("LAG завершён — стрелка догнала");
       }
       break;
 
@@ -92,7 +92,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       // Ждём либо начала часа, либо середины
       if (rtcMinute == 0 || rtcMinute == 30) {
         SET_STATE(IDLE, now);
-        debugLogf("🕘 BREAK завершён → наступила %02d-я минута, переходим в IDLE\n", rtcMinute);
+        debugLogf("BREAK завершён → наступила %02d-я минута, переходим в IDLE\n", rtcMinute);
       }
       break;
   }
