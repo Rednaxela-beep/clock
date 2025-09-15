@@ -1,10 +1,12 @@
 //config.h Конфигурация пинов и основных переменных 
 #pragma once
-extern int StepsForMinute;
-
+#include <cstdint> // 
+#include <Arduino.h> // даёт uint8_t, int32_t и т.д.
 // Параметры движения стрелок
-// #define STEPPER_MAX_SPEED     650.0f   // шагов/сек
-// #define STEPPER_ACCELERATION  350.0f   // шагов/сек²
+extern int StepsForMinute; // К-во шагов на минуту
+extern float stepFraction; // Доля полного минутного хода (1.0 = полный, 0.1 = десятая часть)
+extern uint8_t stepIntervalSec; // Интервал между шагами в секундах
+extern uint8_t transitionTimeSec; // Время движения одного шага (сек)
 
 // Сетевые настройки
 #define WIFI_SSID     "5stars"

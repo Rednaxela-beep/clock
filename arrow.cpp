@@ -11,14 +11,16 @@ static int lastRtcMinute = -1;
 static int stepCounter = 0;
 static ArrowState lastState = IDLE;  // локальная "память" смен состояния
 
-static bool firstLoop = true; // пропуск первого цикла
+static bool firstLoop = true;  // пропуск первого цикла
 void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microSwitchState) {
-    if (firstLoop) {
-        lastRtcMinute = rtcMinute; // синхронизируем
-        firstLoop = false;
-        return; // пропускаем первый цикл
-    }
- // Лог смены состояний (если включено)
+  static uint8_t lastStepSecond = 255;  // 255 — заведомо невозможное значение
+  uint8_t startSecond = (60 - transitionTimeSec) % stepIntervalSec;
+  if (firstLoop) {
+    lastRtcMinute = rtcMinute;  // синхронизируем
+    firstLoop = false;
+    return;  // пропускаем первый цикл
+  }
+  // Лог смены состояний (если включено)
   if (arrowState != lastState) {
     lastState = arrowState;
   }
@@ -38,7 +40,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 
     if (rtcMinute == 59) {
       // SET_STATE(IDLE, now);
-      debugLogf("Концевик на 59-й минуте → стоп и IDLE");
+      debugLogf("Концевик на 59-й минуте");
       return;
     }
 
@@ -70,19 +72,28 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 
   // 🎯 Основной конечный автомат
   switch (arrowState) {
-    case IDLE:
-      if (rtcMinute != lastRtcMinute) {
+    case IDLE: 
+    if (rtcMinute != lastRtcMinute) {      // Сброс, если пошла новая минута
         lastRtcMinute = rtcMinute;
+        lastStepSecond = 255; // разрешаем старт в этой минуте
+    }
+      // Момент старта: за transitionTimeSec до целевого момента
+      if (currentSecond == startSecond && currentSecond != lastStepSecond) {
+        lastStepSecond = currentSecond;
+
+        long stepTarget = StepsForMinute * stepFraction;
         stepper.setCurrentPosition(0);
-        stepper.moveTo(StepsForMinute);
+        stepper.moveTo(stepTarget);
+
         SET_STATE(MOVING, now);
-        Serial.printf("▶️ Переход %02d\n", rtcMinute);
+        Serial.printf("▶️ Предварительный старт: %.2f от полного, интервал %d сек, старт в %02d:%02d:%02d\n",
+                      stepFraction, stepIntervalSec, now.hour(), rtcMinute, currentSecond);
       }
       break;
 
     case MOVING:
-      if (stepper.distanceToGo() == 0) {
-        stepper.disableOutputs();  // FSM не решает здесь, только снимаем питание
+      if (!stepper.isRunning()) {
+        SET_STATE(IDLE, now);
       }
       break;
 
@@ -95,8 +106,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       break;
 
     case BREAK:
-      // Ждём либо начала часа, либо середины
-      if (rtcMinute == 0 || rtcMinute == 30) {
+      if (rtcMinute == 0 || rtcMinute == 30) {      // Ждём либо начала часа, либо середины
         SET_STATE(IDLE, now);
         debugLogf("BREAK завершён → наступила %02d-я минута, переходим в IDLE\n", rtcMinute);
       }
@@ -138,7 +148,7 @@ bool microSw() {
         // Срабатывание: кулачок соскакивает
         unsigned long dt = nowMillis - triggerStart;
         if (armed && (dt >= 1000) && (dt <= 300000)) {
-          Serial.printf("🔘 Концевик сработал!");
+//          Serial.printf("🔘 Концевик сработал!");
           armed = false;
           return true;  // shot!
         } else {
