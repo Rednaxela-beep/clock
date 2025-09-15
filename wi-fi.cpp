@@ -73,7 +73,7 @@ DateTime syncRTC() {
             DateTime rtcTime = rtc.now();
             long diff = abs((long)(rtcTime.unixtime() - ntpTime.unixtime()));
 
-            debugLogf("📊 Разница RTC vs NTP: %d сек", diff);
+            Serial.printf("📊 Разница RTC vs NTP: %d сек", diff);
 
             if (diff > 2) {
                 rtc.adjust(ntpTime);
@@ -81,7 +81,7 @@ DateTime syncRTC() {
                               ntpTime.hour(), ntpTime.minute(), ntpTime.second());
                 return ntpTime;
             } else {
-                debugLogf("⏱ RTC уже точное");
+                Serial.println("⏱ RTC уже точное");
                 return rtcTime;
             }
         } else {
