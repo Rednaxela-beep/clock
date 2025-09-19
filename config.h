@@ -3,11 +3,13 @@
 #include <cstdint> // 
 #include <Arduino.h> // даёт uint8_t, int32_t и т.д.
 // Параметры движения стрелок
-extern int StepsForMinute; // К-во шагов на минуту
-extern float stepFraction; // Доля полного минутного хода (1.0 = полный, 0.1 = десятая часть)
-extern uint8_t stepIntervalSec; // Интервал между шагами в секундах
-extern uint8_t transitionTimeSec; // Время движения одного шага (сек)
-
+extern int StepsForMinute;      // шагов на минуту
+extern float stepFraction;      // доля минутного хода (1.0 = полный, 0.1 = десятая часть)
+extern int stepIntervalSec;     // интервал между стартами (считается из stepFraction)
+extern int transitionTimeSec;   // время перехода (считается из baseTransitionSec * stepFraction)
+extern const int baseTransitionSec; // базовое время для полного минутного хода
+extern float stepperMaxSpeed;       // Макс. скорость шаговика (шагов/сек)
+extern float stepperAcceleration;   // Ускорение (шагов/сек²)
 // Сетевые настройки
 #define WIFI_SSID     "5stars"
 #define WIFI_PASSWORD "Vaio8010"

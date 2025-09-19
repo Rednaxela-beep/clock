@@ -1,4 +1,4 @@
-// debug.cpp
+// debug.cpp Всё, что связано с логами, измерением параметров и прочее
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -36,9 +36,9 @@ void debugLogf(const char* fmt, ...) {
   snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d;",
            now.hour(), now.minute(), now.second());
 
-String line = String(timeBuf) + String(msgBuf);
+String line = String(timeBuf) + String(msgBuf) + "\n";
 // + "\n";
-Serial.print(line);
+Serial.println(line);
 logStore(line);
 }
 

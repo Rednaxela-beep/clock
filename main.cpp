@@ -45,9 +45,9 @@ void setupMain() {
   Wire.begin(5, 6);  // Шина RTC: SDA=D4 (GPIO5), SCL=D5 (GPIO6)
   delay(50);         // 🧘 Даем шине стабилизироваться
 
-  // Параметры движения стрелок
-  stepper.setMaxSpeed(600.0);      // Макс. скорость шаговика (шагов/сек)
-  stepper.setAcceleration(100.0);  // Ускорение (шагов/сек²)
+// Инициализация скорости и ускорения мотора
+stepper.setMaxSpeed(stepperMaxSpeed);
+stepper.setAcceleration(stepperAcceleration);
 
   // Проверка готовности RTC
   bool rtcReady = false;

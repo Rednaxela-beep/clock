@@ -13,7 +13,8 @@ enum ArrowState {
 };
 
 extern ArrowState arrowState;
-
+extern DateTime arrowStateChangedAt;
+void SET_STATE(ArrowState newState, DateTime now); // Прототип функции состояния
 // FSM минутной стрелки
 void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microSwitchState);
 
