@@ -75,11 +75,11 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 
   // 🐶 Единый сторож микрика в MOVING
   if (arrowState == MOVING && microSwitchState) {
-    if (rtcMinute == 59) {
-      SET_STATE(IDLE, now);
-      debugLogf("Концевик на 59-й минуте");
-      return;
-    }
+  //   if (rtcMinute == 59) { Мониторим точность хода и не останавливаем пока
+  //     SET_STATE(IDLE, now);
+  //     debugLogf("Концевик на 59-й минуте");
+  //     return;
+  //   }
 
     if (rtcMinute >= 27 && rtcMinute <= 29) {
       // SET_STATE(BREAK, now);  // ждём 30-й минуты
@@ -99,12 +99,12 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       int correctionSteps = StepsForMinute * missedMinutes;
       // stepper.moveTo(correctionSteps);
       // SET_STATE(LAG, now);
-      debugLogf("LAG: стрелка отстала на %d мин → %d шагов\n", missedMinutes, correctionSteps);
+      debugLogf("Основной кулачок на %d мин", missedMinutes, correctionSteps); // → %d шагов
       return;
     }
 
     // Всё остальное
-    debugLogf("Микрик сработал на %d-й минуте — нужна ручная корректировка\n", rtcMinute);
+    debugLogf("Микрик на %d-й мин.", rtcMinute);
     return;
   }
 
