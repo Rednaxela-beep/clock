@@ -4,6 +4,8 @@
 #include <Arduino.h> // даёт uint8_t, int32_t и т.д.
 // Параметры движения стрелок
 extern int StepsForMinute;      // шагов на минуту
+extern const int idealPosition; // Ожидаемая до нуля позиция срабатывания микрика
+extern const int minimalCorrectionMinutes; // минимальное отставание/опережение для коррекции
 extern int stepIntervalSec;     // интервал между стартами
 extern int transitionTimeSec;   // время перехода
 extern const int baseTransitionSec; // базовое время для полного минутного хода

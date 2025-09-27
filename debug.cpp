@@ -79,9 +79,6 @@ void webMonitorBegin() {
       "<style>body{font-family:sans-serif;margin:20px}pre{background:#111;color:#0f0;padding:8px;height:450px;width:550px;overflow:auto;white-space:pre-wrap}</style>"
       "<h2>Ancient Clock Web Monitor</h2>"
       "<div id='status'></div>"
-      "<form onsubmit='return setSteps()'>"
-      "StepsForMinute: <input id='steps' type='number'><input type='submit' value='Set'>"
-      "</form>"
       "<h3>Log</h3><pre id='log'></pre>"
       "<script>"
       "async function refresh(){"
@@ -93,16 +90,11 @@ void webMonitorBegin() {
       "'<b>Power Input:</b> '+j.vinput+'<br>' +"
       "'<b>StepsForMinute:</b> '+j.steps+'<br>' +"
       "'<b>FSM:</b> '+j.state;"
-      "document.getElementById('steps').value=j.steps;"
+
       "let logElem=document.getElementById('log');"
       "let newLog=await (await fetch('/log')).text();"
       "if (!logElem.textContent.endsWith(newLog)) {logElem.textContent += newLog;}"
       "logElem.scrollTop=logElem.scrollHeight;"
-      "}"
-      "async function setSteps(){"
-      "let val=document.getElementById('steps').value;"
-      "await fetch('/setSteps?val='+val,{method:'POST'});"
-      "refresh();return false;"
       "}"
       "refresh();setInterval(refresh,2000);"
       "</script></html>");
@@ -129,17 +121,7 @@ void webMonitorBegin() {
   dbgServer.on("/log", HTTP_GET, []() {
     dbgServer.send(200, "text/plain; charset=utf-8", debugGetLog());
   });
-
-  // Установка StepsForMinute
-  dbgServer.on("/setSteps", HTTP_POST, []() {
-    if (dbgServer.hasArg("val")) {
-      StepsForMinute = dbgServer.arg("val").toInt();
-      dbgServer.send(200, "text/plain", "OK");
-    } else {
-      dbgServer.send(400, "text/plain", "Missing val");
-    }
-  });
-
+  
   dbgServer.begin();
 }
 

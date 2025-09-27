@@ -11,8 +11,6 @@ inline const char* stateName(ArrowState state) {
   switch (state) {
     case IDLE: return "IDLE";
     case MOVING: return "MOVING";
-    case LAG: return "LAG";
-    case BREAK: return "BREAK";
     default: return "UNKNOWN";
   }
 }

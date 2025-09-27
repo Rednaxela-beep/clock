@@ -20,7 +20,7 @@ static bool firstLoop = true;  // пропуск первого цикла
 DateTime arrowStateChangedAt;
 
 // -----------------------------------------------------------------------------
-// Универсальная функция смены состояния FSM
+// Универсальная функция смены состояния конечного автомата
 // -----------------------------------------------------------------------------
 void SET_STATE(ArrowState newState, DateTime now) {
   if (arrowState != newState) {
@@ -31,9 +31,9 @@ void SET_STATE(ArrowState newState, DateTime now) {
       // debugLogf("Остановка и обнуление при переходе MOVING → IDLE");
     }
 
-    Serial.printf("[%02d:%02d:%02d] ⚙️ FSM: %s → %s\n",
-                  now.hour(), now.minute(), now.second(),
-                  stateName(arrowState), stateName(newState));
+    // Serial.printf("[%02d:%02d:%02d] ⚙️ FSM: %s → %s\n",
+    //               now.hour(), now.minute(), now.second(),
+    //               stateName(arrowState), stateName(newState));
 
     arrowState = newState;
     arrowStateChangedAt = now;  // если ведёшь таймстемп
@@ -43,7 +43,7 @@ void SET_STATE(ArrowState newState, DateTime now) {
 // Конечный автомат движения и корректировки стрелки
 // -----------------------------------------------------------------------------
 void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microSwitchState) {
-  static uint8_t lastStepSecond = 255;                        // 255 — заведомо невозможное значение
+  static uint8_t invalidSecond = 255;                         // 255 — заведомо невозможное значение
   uint8_t startSecond = stepIntervalSec - transitionTimeSec;  // Секунда старта = 60 - transitionTimeSec, но с учётом кратности интервалу
   if (startSecond >= stepIntervalSec) startSecond = 0;        // защита от выхода за диапазон
 
@@ -59,87 +59,87 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
     lastState = arrowState;
   }
 
+  stepper.stop();                 // ⛔️ Останавливаем мотор
+  stepper.setCurrentPosition(0);  // 🧭 Фиксируем позицию
+
   // 🐶 Единый сторож микрика в MOVING
   if (arrowState == MOVING && microSwitchState) {
+    if (rtcMinute >= 56 && rtcMinute <= 58 || rtcMinute == 59 || rtcMinute >= 0 && rtcMinute <= 5) {
+      stepper.stop();
+      stepper.setCurrentPosition(0);
 
-    if (rtcMinute >= 20 && rtcMinute <= 40) {  // Только лог для контроля
-      debugLogf("Второй кулачок сработал");
-      return;
-    }
+      int missedMinutes = 0;
+      float correctionFactor = 0.0f;
+      int correctionSign = 1;
 
-    if (rtcMinute >= 55 || rtcMinute <= 05) {  // Корректируем струлку если нужно
-      int idealSecond = 59 * 60 + 58;          // 59 мин 58 сек = 3598
-      int actualSecond = rtcMinute * 60 + currentSecond;
-      int deltaSec = actualSecond - idealSecond;
-
-      // округление до ближайших 10 сек, если дельта ≥ 6 сек
-      int roundedDeltaSec = (abs(deltaSec) >= 6) ? (deltaSec / 10) * 10 : 0;
-
-      if (roundedDeltaSec != 0) {
-        correctionDeltaSteps = (roundedDeltaSec * StepsForMinute) / 60;
+      if (rtcMinute >= 56 && rtcMinute <= 58) {
+        missedMinutes = 60 - rtcMinute;
+        correctionFactor = missedMinutes - 0.1f;
+        correctionSign = -1;
+        debugLogf("Опережение: %d мин. Коррекция назад", missedMinutes);
+      } else if (rtcMinute == 59) {
+        correctionDeltaSteps = idealPosition;
         applyCorrectionNextStep = true;
-
-        debugLogf("Дельта %d сек. Корректировка %d шагов",
-                  deltaSec, correctionDeltaSteps);
-      } else {
-        debugLogf("Дельта %d сек. Корректировка не требуется", deltaSec);
+        debugLogf("Норма: микрик сработал на 59-й минуте, коррекция положения %d шагов", idealPosition);
+        return;
+      } else if (rtcMinute >= 0 && rtcMinute <= 5) {
+        missedMinutes = rtcMinute + 1;
+        correctionFactor = missedMinutes - 0.1f;
+        correctionSign = +1;
+        debugLogf("Отставание: %d мин. Коррекция вперёд", missedMinutes);
       }
+
+      correctionDeltaSteps = correctionSign * (int)(abs(StepsForMinute) * correctionFactor);
+      applyCorrectionNextStep = true;
+      debugLogf("✅ Коррекция рассчитана: %d шагов, applyCorrectionNextStep = %s",
+                correctionDeltaSteps, applyCorrectionNextStep ? "true" : "false");
+      debugLogf("Коррекция: %+d шагов", correctionDeltaSteps);
+      return;
+    } else {
+      debugLogf("Микрик вне допустимого интервала — игнор");
       return;
     }
   }
+
   // 🎯 Основной конечный автомат
   switch (arrowState) {
     case IDLE:
       if (rtcMinute != lastRtcMinute) {  // Сброс, если пошла новая минута
         lastRtcMinute = rtcMinute;
-        lastStepSecond = 255;  // разрешаем старт в этой минуте
+        invalidSecond = 255;  // разрешаем старт в этой минуте
       }
-      // Секунда старта = (stepIntervalSec - transitionTimeSec)
-      startSecond = (stepIntervalSec - transitionTimeSec) % stepIntervalSec;
 
-      if ((currentSecond % stepIntervalSec) == startSecond && currentSecond != lastStepSecond && !stepper.isRunning()) {
+      if ((currentSecond % stepIntervalSec) == startSecond && currentSecond != invalidSecond && !stepper.isRunning()) {
 
-        lastStepSecond = currentSecond;
+        invalidSecond = currentSecond;
 
-        long stepTarget = StepsForMinute;
-
-        if (applyCorrectionNextStep) {  // Собственно корректировка
+        long stepTarget = StepsForMinute;  // Собственно корректировка
+        if (applyCorrectionNextStep) {
           stepTarget += correctionDeltaSteps;
           applyCorrectionNextStep = false;
           correctionDeltaSteps = 0;
 
-          Serial.printf("▶️ %02d предварительный старт: коррекция %+ld шагов\n",
+          Serial.printf("[%02d:%02d:%02d] ▶️ %02d-й старт: коррекция %+ld шагов\n",
+                        now.hour(), now.minute(), now.second(),
                         (rtcMinute + 1) % 60, stepTarget - StepsForMinute);
+
         } else {
-          Serial.printf("▶️ %02d-й предварительный старт\n",
+          Serial.printf("[%02d:%02d:%02d] ▶️ %02d-й старт\n",
+                        now.hour(), now.minute(), now.second(),
                         (rtcMinute + 1) % 60);
+        }
+        if (applyCorrectionNextStep) {
+          debugLogf("🧮 Применяем коррекцию: %+d шагов", correctionDeltaSteps);
         }
 
         stepper.move(stepTarget);
         SET_STATE(MOVING, now);
-
-        Serial.printf("▶️ %02d предварительный старт \n",
-                      (rtcMinute + 1) % 60);
       }
       break;
 
     case MOVING:
       if (!stepper.isRunning()) {
         SET_STATE(IDLE, now);
-      }
-      break;
-
-    case LAG:
-      if (stepper.distanceToGo() == 0) {
-        SET_STATE(IDLE, now);
-        Serial.printf("LAG завершён — стрелка догнала");
-      }
-      break;
-
-    case BREAK:
-      if (rtcMinute == 0 || rtcMinute == 30) {  // Ждём либо начала часа, либо середины
-        SET_STATE(IDLE, now);
-        debugLogf("BREAK завершён → наступила %02d-я минута, переходим в IDLE\n", rtcMinute);
       }
       break;
   }
@@ -176,8 +176,8 @@ bool microSw() {
       } else {
         // Срабатывание: кулачок соскакивает
         unsigned long dt = nowMillis - triggerStart;
-        if (armed && (dt >= 1000) && (dt <= 300000)) {
-          //          Serial.printf("🔘 Концевик сработал!");
+        if (armed && (dt >= 1000) && (dt <= 300000)) {  // 🔘 Концевик сработал!
+          Serial.println("🔘 Концевик сработал — фиксируем положение");
           armed = false;
           return true;  // shot!
         } else {
@@ -189,3 +189,4 @@ bool microSw() {
   }
   return false;  // shot не произошёл
 }
+// ========== КОНЕЦ arrow.cpp ==========

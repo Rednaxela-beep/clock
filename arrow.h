@@ -8,8 +8,6 @@
 enum ArrowState {
     IDLE,     // Ожидание
     MOVING,   // Двигаем стрелку
-    LAG,      // Корректировка отставания
-    BREAK     // Ожидание 59-й, если пришли раньше
 };
 
 extern ArrowState arrowState;
