@@ -1,5 +1,5 @@
+// arrow.h
 #pragma once
-
 #include <Arduino.h>
 #include <RTClib.h>
 #include "config.h"   // StepsForMinute, пины/настройки, константы
@@ -9,6 +9,12 @@ enum ArrowState {
     IDLE,     // Ожидание
     MOVING,   // Двигаем стрелку
 };
+
+extern int lastRtcMinute; // Видимость для Debug.cpp 
+extern uint8_t invalidSecond;
+extern bool applyCorrectionNextStep;
+extern int correctionDeltaSteps;
+extern bool stepperEnabled;
 
 extern ArrowState arrowState;
 extern DateTime arrowStateChangedAt;

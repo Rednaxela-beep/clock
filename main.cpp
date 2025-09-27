@@ -18,7 +18,6 @@ RTC_DS3231 rtc;  // RTC модуль DS3231
 AccelStepper stepper(AccelStepper::HALF4WIRE, IN1, IN3, IN2, IN4);  // HALF4WIRE — полушаговый режим 28BYJ-48
 
 // ====== Глобальные переменные состояния ======
-int lastRtcMinute = -1;       // Предыдущая минута для сравнения
 bool syncedThisHour = false;  // Флаг синхронизации один раз в час
 bool systemReady = false;     // Флаг окончания загрузки
 // Глобальные объекты

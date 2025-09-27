@@ -88,7 +88,7 @@ void webMonitorBegin() {
       "'<b>RTC:</b> '+j.rtc+'<br>' +"
       "'<b>Uptime:</b> '+j.uptime+'<br>' +"
       "'<b>Power Input:</b> '+j.vinput+'<br>' +"
-      "'<b>StepsForMinute:</b> '+j.steps+'<br>' +"
+      "'<b>Steps For Minute:</b> '+j.steps+'<br>' +"
       "'<b>FSM:</b> '+j.state;"
 
       "let logElem=document.getElementById('log');"
@@ -121,7 +121,7 @@ void webMonitorBegin() {
   dbgServer.on("/log", HTTP_GET, []() {
     dbgServer.send(200, "text/plain; charset=utf-8", debugGetLog());
   });
-  
+
   dbgServer.begin();
 }
 
@@ -129,10 +129,34 @@ void webMonitorLoop() {
   dbgServer.handleClient();
 }
 
-// ====== Функция возвращает параметны приложения ======
+// ====== Функция возвращает параметны приложения по команде 'd' в serial monitor ======
 void debugDump(DateTime now, bool microSwitchState) {
   String line;
   line = String("🕰 RTC: ") + String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());
+  Serial.println(line);
+  logStore(line);
+
+  line = String("⏱ lastRtcMinute: ") + lastRtcMinute;  // Добавлено 27 сентября
+  Serial.println(line);
+  logStore(line);
+
+  line = String("🚫 invalidSecond: ") + invalidSecond;  // 2.Добавлено 27 сентября
+  Serial.println(line);
+  logStore(line);
+
+  line = String("🧮 applyCorrectionNextStep: ") + (applyCorrectionNextStep ? "true" : "false");  // 3. Добавлено 27 сентября
+  Serial.println(line);
+  logStore(line);
+
+  line = String("📏 correctionDeltaSteps: ") + correctionDeltaSteps;
+  Serial.println(line);
+  logStore(line);
+
+  line = String("🏃 stepper.isRunning(): ") + (stepper.isRunning() ? "true" : "false");  // 4.Добавлено 27 сентября
+  Serial.println(line);
+  logStore(line);
+
+  line = String("⚡️ stepperEnabled: ") + (stepperEnabled ? "true" : "false");  // 5.Добавлено 27 сентября
   Serial.println(line);
   logStore(line);
 

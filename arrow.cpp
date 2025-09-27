@@ -8,13 +8,14 @@
 ArrowState arrowState = IDLE;
 
 // Локальные счётчики/состояния конечного автомата
-static int lastRtcMinute = -1;
-static int correctionDeltaSteps = 0;          // Сколько шагов добавить/отнять
-static bool applyCorrectionNextStep = false;  // Флаг применения коррекции
+int lastRtcMinute = -1;
+uint8_t invalidSecond = 255;
+int correctionDeltaSteps = 0;          // Сколько шагов добавить/отнять
+bool applyCorrectionNextStep = false;  // Флаг применения коррекции
 
 static ArrowState lastState = IDLE;  // локальная "память" смен состояния
-
-static bool firstLoop = true;  // пропуск первого цикла
+static bool firstLoop = true;        // пропуск первого цикла
+bool stepperEnabled = false;
 
 // Глобальная метка времени смены состояния
 DateTime arrowStateChangedAt;
@@ -28,9 +29,12 @@ void SET_STATE(ArrowState newState, DateTime now) {
     if (arrowState == MOVING && newState == IDLE) {
       stepper.setCurrentPosition(0);  // сбрасываем позицию
       stepper.disableOutputs();       // отключаем питание
-      // debugLogf("Остановка и обнуление при переходе MOVING → IDLE");
+      stepperEnabled = false;         // Остановка и обнуление при переходе MOVING → IDLE"
     }
-
+    if (newState == MOVING) {
+      stepper.enableOutputs();
+      stepperEnabled = true;
+    }
     // Serial.printf("[%02d:%02d:%02d] ⚙️ FSM: %s → %s\n",
     //               now.hour(), now.minute(), now.second(),
     //               stateName(arrowState), stateName(newState));
@@ -47,7 +51,9 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
   uint8_t startSecond = stepIntervalSec - transitionTimeSec;  // Секунда старта = 60 - transitionTimeSec, но с учётом кратности интервалу
   if (startSecond >= stepIntervalSec) startSecond = 0;        // защита от выхода за диапазон
 
-
+  if (microSwitchState && arrowState != MOVING) {  // ⚠️ Микрик сработал вне движения — игнорируем
+    return;
+  }
   if (firstLoop) {
     lastRtcMinute = rtcMinute;  // синхронизируем
     firstLoop = false;
@@ -59,14 +65,11 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
     lastState = arrowState;
   }
 
-  stepper.stop();                 // ⛔️ Останавливаем мотор
-  stepper.setCurrentPosition(0);  // 🧭 Фиксируем позицию
-
   // 🐶 Единый сторож микрика в MOVING
   if (arrowState == MOVING && microSwitchState) {
-    if (rtcMinute >= 56 && rtcMinute <= 58 || rtcMinute == 59 || rtcMinute >= 0 && rtcMinute <= 5) {
-      stepper.stop();
-      stepper.setCurrentPosition(0);
+    if ((rtcMinute >= 56 && rtcMinute <= 58) || rtcMinute == 59 || (rtcMinute >= 0 && rtcMinute <= 10)) {
+      stepper.stop();                 // ⛔️ Останавливаем мотор
+      stepper.setCurrentPosition(0);  // 🧭 Фиксируем позицию
 
       int missedMinutes = 0;
       float correctionFactor = 0.0f;
@@ -82,7 +85,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
         applyCorrectionNextStep = true;
         debugLogf("Норма: микрик сработал на 59-й минуте, коррекция положения %d шагов", idealPosition);
         return;
-      } else if (rtcMinute >= 0 && rtcMinute <= 5) {
+      } else if (rtcMinute >= 0 && rtcMinute <= 10) {
         missedMinutes = rtcMinute + 1;
         correctionFactor = missedMinutes - 0.1f;
         correctionSign = +1;
@@ -113,23 +116,25 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 
         invalidSecond = currentSecond;
 
-        long stepTarget = StepsForMinute;  // Собственно корректировка
+        long stepTarget = StepsForMinute;
+
         if (applyCorrectionNextStep) {
+          debugLogf("🧮 Перед стартом: correctionDeltaSteps = %d, applyCorrectionNextStep = true",
+                    correctionDeltaSteps);
+
           stepTarget += correctionDeltaSteps;
           applyCorrectionNextStep = false;
           correctionDeltaSteps = 0;
 
-          Serial.printf("[%02d:%02d:%02d] ▶️ %02d-й старт: коррекция %+ld шагов\n",
+          Serial.printf("[%02d:%02d:%02d] ▶️ %02d-й предварительный старт: коррекция %+ld шагов\n",
                         now.hour(), now.minute(), now.second(),
                         (rtcMinute + 1) % 60, stepTarget - StepsForMinute);
 
+          debugLogf("🧮 Применяем коррекцию: %+ld шагов", stepTarget - StepsForMinute);
         } else {
-          Serial.printf("[%02d:%02d:%02d] ▶️ %02d-й старт\n",
+          Serial.printf("[%02d:%02d:%02d] ▶️ %02d-й предварительный старт\n",
                         now.hour(), now.minute(), now.second(),
                         (rtcMinute + 1) % 60);
-        }
-        if (applyCorrectionNextStep) {
-          debugLogf("🧮 Применяем коррекцию: %+d шагов", correctionDeltaSteps);
         }
 
         stepper.move(stepTarget);
@@ -148,45 +153,45 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 // -----------------------------------------------------------------------------
 // Обработка срабатывания концевика (микрика)
 // -----------------------------------------------------------------------------
+// Обработка срабатывания концевика (edge-triggered + debounce lockout)
 bool microSw() {
-  static int lastReading = LOW;
   static int lastStableState = LOW;
-  static unsigned long lastDebounce = 0;
-  static unsigned long triggerStart = 0;
-  static bool armed = false;
+  static unsigned long lastShotTime = 0;
+  static unsigned long lastVzvodTime = 0;
+  const unsigned long debounceLockout = 1000;
+  const unsigned long vzvodLockout = 100;
 
   int signal = digitalRead(MICROSW_PIN);
   unsigned long nowMillis = millis();
 
-  // Антидребезг
-  if (signal != lastReading) {
-    lastDebounce = nowMillis;
-    lastReading = signal;
-  }
+  if (signal != lastStableState) {
+    // Обнаружен фронт
 
-  if ((nowMillis - lastDebounce) > DEBOUNCE_DELAY) {
-    if (signal != lastStableState) {
-      lastStableState = signal;
-
-      if (signal == HIGH) {
-        // Взвод: кулачок наехал
-        armed = true;
-        triggerStart = nowMillis;
-        Serial.println("🔘 Взвод концевика");
+    if (signal == LOW && lastStableState == HIGH) {
+      // Задний фронт — сработка
+      if (nowMillis - lastShotTime > debounceLockout) {
+        lastShotTime = nowMillis;
+        Serial.printf("🔘 Концевик сработал @ %lu ms\n", nowMillis);
+        lastStableState = signal;
+        return true;
       } else {
-        // Срабатывание: кулачок соскакивает
-        unsigned long dt = nowMillis - triggerStart;
-        if (armed && (dt >= 1000) && (dt <= 300000)) {  // 🔘 Концевик сработал!
-          Serial.println("🔘 Концевик сработал — фиксируем положение");
-          armed = false;
-          return true;  // shot!
-        } else {
-          Serial.printf("🕳️ Игнорируем некорректное срабатывание");
-          armed = false;
-        }
+        Serial.println("🕳️ Повторное срабатывание заблокировано");
+      }
+
+    } else if (signal == HIGH && lastStableState == LOW) {
+      // Передний фронт — взвод
+      if (nowMillis - lastVzvodTime > vzvodLockout) {
+        lastVzvodTime = nowMillis;
+        debugLogf("🔘 Взвод концевика @ %lu ms\n", nowMillis);
+      } else {
+        Serial.println("🕳️ Повторный взвод заблокирован");
       }
     }
+
+    lastStableState = signal;
   }
-  return false;  // shot не произошёл
+
+  return false;
 }
+
 // ========== КОНЕЦ arrow.cpp ==========

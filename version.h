@@ -2,7 +2,7 @@
 #pragma once
 
 // Версия проекта (SemVer)
-#define PROJECT_VERSION "0.9.7-dev"
+#define PROJECT_VERSION "0.9.8-dev"
 
 // Дата сборки (автоматически подставляется при компиляции)
 #define BUILD_DATE __DATE__
