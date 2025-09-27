@@ -14,6 +14,16 @@ extern int StepsForMinute;
 // ====== Лог буфер ======
 static String lastLogLine;
 
+float lastBatteryVoltage = 0.0f;
+float measureBattery() {  // Функция измерения напряжения (вызов в wi-fi.cpp)
+  int raw = analogRead(VBAT_ADC_PIN);
+  return raw * (ADC_REF / 4095.0f) * VBAT_DIVIDER;
+}
+
+void batteryVoltage(float voltage) {  // Функция вывода измеренного напряжения в логи
+  // debugLogf("Power Input: %.2f V", voltage);
+}
+
 static void logStore(const String& line) {
   lastLogLine = line;
 }
@@ -30,16 +40,19 @@ void debugLogf(const char* fmt, ...) {
   va_start(args, fmt);
   vsnprintf(msgBuf, sizeof(msgBuf), fmt, args);
   va_end(args);
-
+  if (!rtc.begin()) {
+    Serial.println("RTC not ready");
+    return;
+  }
   DateTime now = rtc.now();
   char timeBuf[16];
   snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d;",
            now.hour(), now.minute(), now.second());
 
-String line = String(timeBuf) + String(msgBuf) + "\n";
-// + "\n";
-Serial.println(line);
-logStore(line);
+  String line = String(timeBuf) + String(msgBuf) + "\n";
+  // + "\n";
+  Serial.println(line);
+  logStore(line);
 }
 
 // ====== Uptime ======
@@ -77,6 +90,7 @@ void webMonitorBegin() {
       "document.getElementById('status').innerHTML="
       "'<b>RTC:</b> '+j.rtc+'<br>' +"
       "'<b>Uptime:</b> '+j.uptime+'<br>' +"
+      "'<b>Power Input:</b> '+j.vinput+'<br>' +"
       "'<b>StepsForMinute:</b> '+j.steps+'<br>' +"
       "'<b>FSM:</b> '+j.state;"
       "document.getElementById('steps').value=j.steps;"
@@ -104,6 +118,7 @@ void webMonitorBegin() {
     String json = "{";
     json += "\"rtc\":\"" + String(buf) + "\",";
     json += "\"uptime\":\"" + uptimeStr() + "\",";
+    json += "\"vinput\":\"" + String(lastBatteryVoltage, 2) + " V\",";
     json += "\"steps\":" + String(StepsForMinute) + ",";
     json += "\"state\":\"" + String(stateName(arrowState)) + "\"";
     json += "}";

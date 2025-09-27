@@ -45,13 +45,12 @@ void setupMain() {
   Wire.begin(5, 6);  // Шина RTC: SDA=D4 (GPIO5), SCL=D5 (GPIO6)
   delay(50);         // 🧘 Даем шине стабилизироваться
 
-// Инициализация скорости и ускорения мотора
-stepper.setMaxSpeed(stepperMaxSpeed);
-stepper.setAcceleration(stepperAcceleration);
+  // Инициализация скорости и ускорения мотора
+  stepper.setMaxSpeed(stepperMaxSpeed);
+  stepper.setAcceleration(stepperAcceleration);
 
-  // Проверка готовности RTC
-  bool rtcReady = false;
-  delay(100);  // 🧘 Дать шине стабилизироваться перед RTC
+  bool rtcReady = false;  // Проверка готовности RTC
+  delay(150);             // 🧘 Дать шине стабилизироваться перед RTC
   for (int i = 0; i < 3; i++) {
     if (rtc.begin()) {
       rtcReady = true;
@@ -59,11 +58,11 @@ stepper.setAcceleration(stepperAcceleration);
     }
     delay(300);
   }
-  if (!rtcReady) {
-    Serial.println("❌ RTC не найден! Перезагружаем контроллер.");
-    delay(1000);    // Дать время на вывод
-    ESP.restart();  // 🔁 Мягкая перезагрузка
-  }
+  // if (!rtcReady) {
+  //   Serial.println("❌ RTC не найден! Перезагружаем контроллер.");
+  //   delay(1000);    // Дать время на вывод
+  //   ESP.restart();  // 🔁 Мягкая перезагрузка
+  // }
 
   delay(250);                // Даем IDE время подключиться
   DateTime now = syncRTC();  // Читаем актуальное время
@@ -74,8 +73,12 @@ stepper.setAcceleration(stepperAcceleration);
             now.hour(), now.minute(), now.second(),
             now.day(), now.month(), now.year());
 
-  lastRtcMinute = now.minute();  // Чтобы FSM подождал реальной смены минуты
-  systemReady = true;            // Система готова к работе
+  lastRtcMinute = now.minute();           // Чтобы FSM подождал реальной смены минуты
+  float vbat = measureBattery();          // При старте сразу измеряем наряжение
+  lastBatteryVoltage = measureBattery();  // Обновляем переменную которая хранит измеренное напряжение
+  batteryVoltage(lastBatteryVoltage);
+  // batteryVoltage(vbat);  // и сразу выводим в debug и веб
+  systemReady = true;  // Система готова к работе
 }
 
 // -----------------------------------------------------------------------------

@@ -17,16 +17,9 @@ inline const char* stateName(ArrowState state) {
   }
 }
 
-// Макрос для смены состояния с логом - модернизировано в SET_STATE(ArrowState newState, DateTime now) в arrow.cpp 
-// #define SET_STATE(newState, now) \
-//   do { \
-//     if (arrowState != (newState)) { \
-//       Serial.printf("[%02d:%02d:%02d] ⚙️ FSM: %s → %s\n", \
-//                     (now).hour(), (now).minute(), (now).second(), \
-//                     stateName(arrowState), stateName(newState)); \
-//       arrowState = (newState); \
-//     } \
-//   } while (0)
+float measureBattery();             // возвращает напряжение
+void batteryVoltage(float voltage); // выводит в debug + web
+extern float lastBatteryVoltage;    // Хранит значение
 
 void debugDump(DateTime now, bool microSwitchState);  // Прототип отладочного дампа
 
