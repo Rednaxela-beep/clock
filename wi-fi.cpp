@@ -58,7 +58,7 @@ DateTime syncRTC() {
     Serial.println(ntpServers[i]);
 
     configTime(gmtOffset_sec, daylightOffset_s, ntpServers[i]);
-    delay(100);
+    delay(1000);
 
     if (getLocalTime(&timeinfo)) {
       DateTime ntpTime(

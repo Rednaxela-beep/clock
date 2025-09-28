@@ -15,7 +15,7 @@
 Servo sg90;      // Серво для молоточка
 RTC_DS3231 rtc;  // RTC модуль DS3231
 
-AccelStepper stepper(AccelStepper::HALF4WIRE, IN1, IN3, IN2, IN4);  // HALF4WIRE — полушаговый режим 28BYJ-48
+AccelStepper stepper(AccelStepper::HALF4WIRE, IN2, IN4, IN1, IN3); // HALF4WIRE — полушаговый режим 28BYJ-48
 
 // ====== Глобальные переменные состояния ======
 bool syncedThisHour = false;  // Флаг синхронизации один раз в час
