@@ -144,13 +144,13 @@ void debugDump(DateTime now, bool microSwitchState) {
   Serial.println(line);
   logStore(line);
 
-  line = String("🧮 applyCorrectionNextStep: ") + (applyCorrectionNextStep ? "true" : "false");  // 3. Добавлено 27 сентября
-  Serial.println(line);
-  logStore(line);
+  // line = String("🧮 applyCorrectionNextStep: ") + (applyCorrectionNextStep ? "true" : "false");  // 3. Добавлено 27 сентября
+  // Serial.println(line);
+  // logStore(line);
 
-  line = String("📏 correctionDeltaSteps: ") + correctionDeltaSteps;
-  Serial.println(line);
-  logStore(line);
+  // line = String("📏 correctionDeltaSteps: ") + correctionDeltaSteps;
+  // Serial.println(line);
+  // logStore(line);
 
   line = String("🏃 stepper.isRunning(): ") + (stepper.isRunning() ? "true" : "false");  // 4.Добавлено 27 сентября
   Serial.println(line);
