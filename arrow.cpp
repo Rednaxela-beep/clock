@@ -113,8 +113,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 
         invalidSecond = currentSecond;
         Serial.printf("%02d:%02d:%02d; ▶️ %02d-й предстарт\n",
-                      now.hour(), now.minute(), now.second(),
-                      targetMinute);
+                      now.hour(), now.minute(), now.second(), targetMinute);
         stepper.move(StepsForMinute);
         SET_STATE(MOVING, now);
       }
@@ -160,7 +159,8 @@ bool microSw() {
         // Взвод: кулачок наехал
         armed = true;
         triggerStart = nowMillis;
-        Serial.println("🔘 Взвод концевика");
+        DateTime now = rtc.now();
+        debugLogf("%02d:%02d:%02d; 🔘 Взвод концевика\n", now.hour(), now.minute(), now.second());
       } else {
         // Срабатывание: кулачок соскакивает
         unsigned long dt = nowMillis - triggerStart;
