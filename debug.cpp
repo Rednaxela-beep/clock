@@ -130,7 +130,7 @@ void webMonitorLoop() {
 }
 
 // ====== Функция возвращает параметны приложения по команде 'd' в serial monitor ======
-void debugDump(DateTime now, bool microSwitchState) {
+void debugDump(DateTime now, bool microSwitchTriggered) {
   String line;
   line = String("🕰 RTC: ") + String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());
   Serial.println(line);
@@ -172,7 +172,7 @@ void debugDump(DateTime now, bool microSwitchState) {
   Serial.println(line);
   logStore(line);
 
-  line = String("🔘 microSwitchState: ") + (microSwitchState ? "ON" : "OFF");
+  line = String("🔘 microSwitchTriggered: ") + (microSwitchTriggered ? "ON" : "OFF");
   Serial.println(line);
   logStore(line);
 

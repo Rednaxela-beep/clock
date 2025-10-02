@@ -42,14 +42,14 @@ void SET_STATE(ArrowState newState, DateTime now) {
 // -----------------------------------------------------------------------------
 // Конечный автомат движения и корректировки стрелки
 // -----------------------------------------------------------------------------
-void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microSwitchState) {
+void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microSwitchTriggered) {
   static uint8_t invalidSecond = 255;
   static bool firstLoop = true;
   int targetMinute = (rtcMinute + 1) % 60;
   uint8_t startSecond = stepIntervalSec - transitionTimeSec;
   if (startSecond >= stepIntervalSec) startSecond = 0;
 
-  if (microSwitchState && arrowState != MOVING) {
+  if (microSwitchTriggered && arrowState != MOVING) {
     return;  // ⚠️ Микрик сработал вне движения — игнорируем
   }
 
@@ -60,7 +60,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
   }
 
   // 🐶 Сторож микрика в MOVING
-  if (arrowState == MOVING && microSwitchState && !correctionApplied) {
+  if (arrowState == MOVING && microSwitchTriggered && !correctionApplied) {
     if (targetMinute >= 50 || targetMinute <= 10) {
       correctionApplied = true;
 
@@ -88,11 +88,11 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
         debugLogf("⏱️ Опережение на ~%d секунд", -deltaSeconds);
       }
 
-      Serial.printf("%02d:%02d:%02d; ⏱️ Коррекция: %s на ~%d секунд\n",
-                    now.hour(), now.minute(), now.second(),
-                    (targetMinute == 0 ? "норма" : targetMinute <= 10 ? "отставание"
-                                                                      : "опережение"),
-                    abs(deltaSeconds));
+      // Serial.printf("%02d:%02d:%02d; ⏱️ Коррекция: %s на ~%d секунд\n",
+      //               now.hour(), now.minute(), now.second(),
+      //               (targetMinute == 0 ? "норма" : targetMinute <= 10 ? "отставание"
+      //                                                                 : "опережение"),
+      //               abs(deltaSeconds));
 
       stepper.moveTo(newTarget);
       return;
@@ -133,43 +133,53 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 // Обработка срабатывания концевика (edge-triggered + debounce lockout)
 // -----------------------------------------------------------------------------
 bool microSw() {
+  static int lastReading = LOW;
   static int lastStableState = LOW;
-  static unsigned long lastShotTime = 0;
-  static unsigned long lastVzvodTime = 0;
-  const unsigned long debounceLockout = 1000;
-  const unsigned long vzvodLockout = 100;
+  static unsigned long lastDebounce = 0;
+  static unsigned long triggerStart = 0;
+  static bool armed = false;
+
+  // const unsigned long DEBOUNCE_DELAY = 50;      // дребезг
+  const unsigned long MIN_TRIGGER_TIME = 1000;    // минимум между взводом и сработкой
+  const unsigned long MAX_TRIGGER_TIME = 300000;  // максимум (5 минут)
 
   int signal = digitalRead(MICROSW_PIN);
   unsigned long nowMillis = millis();
 
-  if (signal != lastStableState) {
-    // Обнаружен фронт
-
-    if (signal == LOW && lastStableState == HIGH) {
-      // Задний фронт — сработка
-      if (nowMillis - lastShotTime > debounceLockout) {
-        lastShotTime = nowMillis;
-        // debugLogf("🔘 Концевик сработал @ %lu ms\n", nowMillis);
-        lastStableState = signal;
-        return true;
-      } else {
-        // Serial.println("🕳️ Повторное срабатывание заблокировано");
-      }
-
-    } else if (signal == HIGH && lastStableState == LOW) {
-      // Передний фронт — взвод
-      if (nowMillis - lastVzvodTime > vzvodLockout) {
-        lastVzvodTime = nowMillis;
-        // debugLogf("🔘 Взвод концевика, мс: @ %lu\n", nowMillis);
-      } else {
-        // Serial.println("🕳️ Повторный взвод заблокирован");
-      }
-    }
-
-    lastStableState = signal;
+  // Антидребезг
+  if (signal != lastReading) {
+    lastDebounce = nowMillis;
+    lastReading = signal;
   }
 
-  return false;
+  if ((nowMillis - lastDebounce) > DEBOUNCE_DELAY) {
+    if (signal != lastStableState) {
+      lastStableState = signal;
+
+      if (signal == HIGH) {
+        // Взвод: кулачок наехал
+        armed = true;
+        triggerStart = nowMillis;
+        Serial.println("🔘 Взвод концевика");
+      } else {
+        // Срабатывание: кулачок соскакивает
+        unsigned long dt = nowMillis - triggerStart;
+        if (armed && dt >= MIN_TRIGGER_TIME && dt <= MAX_TRIGGER_TIME) {
+          long currentStep = stepper.currentPosition();
+          float progress = (float)currentStep / StepsForMinute * 100.0f;
+          debugLogf("🔘 Концевик сработал! Шаг %ld из %d (%.1f%%)\n", currentStep, StepsForMinute, progress);
+
+          armed = false;
+          return true;  // shot!
+        } else {
+          Serial.printf("🕳️ Игнорируем сработку: Δt = %lu ms\n", dt);
+          armed = false;
+        }
+      }
+    }
+  }
+
+  return false;  // shot не произошёл
 }
 
 // ========== КОНЕЦ arrow.cpp ==========

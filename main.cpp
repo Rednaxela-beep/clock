@@ -89,7 +89,7 @@ void loopMain() {
   DateTime now = rtc.now();
   int rtcMinute = now.minute();
   int currentSecond = now.second();
-  bool microSwitchState = microSw();
+  bool microSwitchTriggered = microSw();  // задний фронт — сработка
 
   int hour = now.hour() % 12;  // Приводим к 12-часовому формату
   if (hour == 0) hour = 12;
@@ -104,7 +104,7 @@ void loopMain() {
 
   handleHourlySync(now);  // Синхронизация каждый час (определена в wi-fi.cpp)
 
-  arrowFSM_update(now, rtcMinute, currentSecond, microSwitchState);  // Обновление FSM стрелок
+  arrowFSM_update(now, rtcMinute, currentSecond, microSwitchTriggered);  // Обновление FSM стрелок
 
   webMonitorLoop();  // Обновление Веб Монитора
 
@@ -113,7 +113,7 @@ void loopMain() {
     char c = Serial.read();
     if (c == 'd') {
       DateTime now = rtc.now();
-      debugDump(now, microSwitchState);
+      debugDump(now, microSwitchTriggered);
     }
   }
 }

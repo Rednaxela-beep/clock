@@ -34,7 +34,7 @@ extern const float ADC_REF;       //
 #define MICROSW_PIN D7
 
 // Антидребезг (мс)
-#define DEBOUNCE_DELAY 50
+const unsigned long DEBOUNCE_DELAY = 50;
 
 // Пины I2C для RTC
 #define SDA_PIN 5
