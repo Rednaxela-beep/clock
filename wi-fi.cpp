@@ -1,4 +1,4 @@
-// wi-fi.cpp
+// wi-fi.cpp функции сети TCP/IP
 #include <Arduino.h>  // обязательно первым
 #include <WiFi.h>
 #include <time.h>  // для NTP

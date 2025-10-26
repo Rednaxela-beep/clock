@@ -1,3 +1,4 @@
+// chimes.h Объвление нужных для боя переменных 
 #pragma once
 
 #include <Arduino.h>

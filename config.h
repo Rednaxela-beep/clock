@@ -22,7 +22,7 @@ extern const float ADC_REF;       //
 #define WEB_PORT 80
 
 // Пин сервопривода боя
-#define SERVO_PIN D6
+#define SERVO_PIN D8
 
 // ====== Шаговый мотор стрелок ======
 #define IN1 D3
