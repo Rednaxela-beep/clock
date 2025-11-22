@@ -39,5 +39,6 @@
 
 ⚠️ Для сборки необходимо создать свой secret.h на основе secret.example.h
 
+![Real Clock Photo](assets/photos/modern_ancient_clock.jpg)
 ```bash
 python espota.py -i <IP> -p 3232 --auth=<пароль> --file CLOCK.ino.bin
