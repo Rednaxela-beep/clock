@@ -1,4 +1,4 @@
-![Ancient Clock Digital Heart](assets/photos/cover1.png)
+![Ancient Clock Digital Heart](assets/photos/Cover.png)
 
 # 🕰️ **Welcome to the Ancient Clock Digital Heart project**
 
