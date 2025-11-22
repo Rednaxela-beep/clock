@@ -1,0 +1,7 @@
+# .gitignore
+*.ps1
+secret.h
+build/
+*.bin
+*.elf
+*.map
