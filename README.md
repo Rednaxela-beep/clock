@@ -10,14 +10,17 @@
 ---
 ## 🛠️ Аппаратная часть
 
-- **"Цифровое сердце"**: SeedStudio XIAO ESP32S3  
-- **RTC модуль**: DS3231  
-- **Шаговый мотор стрелок**: 28BYJ-48 + ULN2003  
-- **Сервопривод боя**: MG90  
+- **"Цифровое сердце"**: [SeedStudio XIAO ESP32S3](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/Seeed%20Studio%20Xiao%20ESP32%20FrontV_cr.png)  
+- **RTC модуль**: [DS3231](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/RTC%20DS3231.jpg)  
+- **Шаговый мотор стрелок**: [28BYJ-48 + ULN2003](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/28BYJ-48%2BULN2003.png)  
+- **Сервопривод боя**: [MG90](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/mg90servo.jpeg)  
 - **Микрик-концевик**: для корректировки стрелки  
-- **Питание**: PB-2606 5000 mAh, DC 5V/3A  
+- **Питание**: [PB-2606 5000 mAh, DC 5V/3A](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/pb-2606_harper_powerbank.jpeg)
 
 ---
+
+📁 [Галерея проекта](https://github.com/Rednaxela-beep/clock/tree/master/assets/photos) — все иллюстрации в одном каталоге
+
 
 ## 📦 Состав проекта
 
@@ -36,9 +39,10 @@
 
 ## 🚀 Сетевые функции
 Контроллер подключается к определенной в файле secret.h переменными WIFI_SSID и WIFI_PASSWORD сети Wi-Fi.
+
 ⚠️ Для этого необходимо скопировать secret.example.h в secret.h и определить в нём SSID и пароль сети.
 
-Web-монитор доступен по http://clock.local в пределах подсети. 
+Web-монитор доступен по адресу http://clock.local в пределах одной подсети. 
 
 Контроллер часов принимают прошивку по Wi-Fi:
 ```bash
