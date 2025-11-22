@@ -41,4 +41,4 @@
 ```bash
 python espota.py -i <IP> -p 3232 --auth=<пароль> --file CLOCK.ino.bin
 ```
-![Real Clock Photo](assets/photos/modern_ancient_clock.jpg)
+<img src="assets/photos/modern_ancient_clock.jpg" alt="Real Clock Photo" height="600"/>
