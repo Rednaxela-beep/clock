@@ -14,12 +14,12 @@
 - **RTC модуль**: [DS3231](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/RTC%20DS3231.jpg)  
 - **Шаговый мотор стрелок**: [28BYJ-48 + ULN2003](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/28BYJ-48%2BULN2003.png)  
 - **Сервопривод боя**: [MG90](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/mg90servo.jpeg)  
-- **<a href="https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/endstop.png" target="_blank">Микрик-концевик</a>**: для корректировки стрелки
+- **[Микрик-концевик](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/endstop.png)**: для корректировки стрелки  
 - **Питание**: [PB-2606 5000 mAh, DC 5V/3A](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/pb-2606_harper_powerbank.jpeg)
 
 ---
 
-📁 [Галерея проекта](https://github.com/Rednaxela-beep/clock/tree/master/assets/photos) — все иллюстрации в одном каталоге
+📁 [Галерея компонентов](https://github.com/Rednaxela-beep/clock/tree/master/assets/photos/e-components) — все иллюстрации в одном каталоге
 
 
 ## 📦 Состав проекта
