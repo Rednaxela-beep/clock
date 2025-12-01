@@ -5,9 +5,12 @@
 #include "secret.h"   // Подключаем приватные данные
 #define PROJECT_NAME "Ancient Clock Digital Heart"
 #define PROJECT_VERSION "1.1.1"  // Версия проекта
-#define BUILD_DATE __DATE__      // Дата и время сборки
+#define BUILD_DATE __DATE__      // Дата и Время сборки
 #define BUILD_TIME __TIME__      // автоматически подставляется при компиляции
-
+// MQTT настройки
+extern const char* MQTT_SERVER;
+extern const int MQTT_PORT;
+extern const char* MQTT_TOPIC;
 // Параметры движения стрелок
 extern int StepsForMinute;             // шагов на минуту
 extern const int corrSteps;            // Ожидаемая до нуля позиция срабатывания микрика
@@ -23,10 +26,8 @@ extern bool microSwitchTriggered;
 
 // Сетевые настройки
 #define WEB_PORT 80
-
 // Пин сервопривода боя
 #define SERVO_PIN D8
-
 // ====== Шаговый мотор стрелок ======
 #define IN1 D3
 #define IN2 D2

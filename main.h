@@ -5,7 +5,6 @@
 #include <ESP32Servo.h>     // чтобы Servo был известен
 #include <AccelStepper.h>   // чтобы AccelStepper был известен
 
-#include "version.h"
 #include "config.h"
 #include "arrow.h"
 #include "debug.h"

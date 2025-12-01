@@ -63,26 +63,24 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
   if (microSwitchTriggered && arrowState == MOVING) {
     if (targetMinute == 0) {
       // ✅ Норма
-      stepper.stop();
-      delay(50);
+      // stepper.stop();
+      // delay(50);
       long correctionSteps = correctionOffset;
-      stepper.move(correctionSteps);
+      // stepper.move(correctionSteps);
       debugLogf("✅ Микрик на нулевой минуте. Стандартная корректировка %ld шагов", correctionSteps);
       // Serial.printf("📐 Двигаем на %ld шагов\n", correctionSteps);
     } else if (targetMinute >= 45 && targetMinute <= 59) {
-      // 🕒 Опережение
-      stepper.stop();
-      delay(50);
+
+      // stepper.stop();  // 🕒 Опережение
+      // delay(50);
       int minutesEarly = 60 - targetMinute;  // Вычисляем к-во минут для корректировки опережения
       long correctionSteps = -StepsForMinute * minutesEarly + correctionOffset;
-      stepper.move(correctionSteps);
+      // stepper.move(correctionSteps);
       debugLogf("🕒 Опережение: возвращаем стрелку на %d минут назад (%ld шагов)", minutesEarly, correctionSteps);
-    } else if (targetMinute >= 1 && targetMinute <= 15) {
-      // 🐢 Отставание
+    } else if (targetMinute >= 1 && targetMinute <= 15) {       // 🐢 Отставание
       long correctionSteps = StepsForMinute * targetMinute + correctionOffset;
-      stepper.moveTo(stepper.currentPosition() + correctionSteps);  // без остановки
+      // stepper.moveTo(stepper.currentPosition() + correctionSteps);  // без остановки
       debugLogf("🐢 Отставание: продвигаем стрелку на %d минут вперёд (%ld шагов)", targetMinute, correctionSteps);
-      // Serial.printf("📐 Двигаем на %ld шагов\n", correctionSteps);
     } else {
       debugLogf("❌ Микрик: минута %d вне допустимого окна корректировки", targetMinute);
     }

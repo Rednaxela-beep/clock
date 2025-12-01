@@ -5,7 +5,6 @@
 #include "debug.h"
 #include "main.h"
 #include "config.h"
-#include "version.h"
 #include "arrow.h"
 #include "chimes.h"  // для управления молоточком
 

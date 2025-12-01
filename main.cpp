@@ -1,7 +1,9 @@
-// main.cpp Главный модуль. Отсчет времени и вызов в нужные моменты
-// arrow перевод стрелок
-// wi-fi подключение по WiFi и синхронизации времени (RTC)
-// chimes Бой молоточком
+// main.cpp - Главный модуль. Отсчет времени и вызов в нужные моменты
+// arrow    - перевод стрелок
+// wi-fi    - подключение по WiFi и синхронизации времени (RTC)
+// chimes   - Бой молоточком
+// mqtt     - Публикация параметров на MQTT сервере
+#include "mqtt.h"  // заголовочный файл mqtt.h
 #include <Arduino.h>
 #include <time.h>  // для configTime, если понадобится позже
 
@@ -43,7 +45,7 @@ void setupMain() {
 
   chimesetup();     // Инициализация молоточка
   connectToWiFi();  // Подключение к WiFi
-  
+
   Wire.begin(5, 6);  // Шина RTC: SDA=D4 (GPIO5), SCL=D5 (GPIO6)
   delay(50);         // 🧘 Даем шине стабилизироваться
 
@@ -71,8 +73,10 @@ void setupMain() {
             now.hour(), now.minute(), now.second(),
             now.day(), now.month(), now.year());
 
-  otaSetup();       // Инициализация OTA
-  
+  otaSetup();  // Инициализация OTA
+
+  setupMQTT();  // Инициализация MQTT-клиента
+
   lastRtcMinute = now.minute();  // Чтобы FSM подождал реальной смены минуты
   systemReady = true;            // Система готова к работе
 }
@@ -107,11 +111,26 @@ void loopMain() {
     stepper.disableOutputs();
   }
 
-  handleHourlySync(now);  // Синхронизация каждый час (определена в wi-fi.cpp)
-
+  handleHourlySync(now);                                                 // Синхронизация каждый час (определена в wi-fi.cpp)
   arrowFSM_update(now, rtcMinute, currentSecond, microSwitchTriggered);  // Обновление FSM стрелок
 
   webMonitorLoop();   // Обновление Веб Монитора
   otaLoop();          // Обработка OTA
   debugSerialLoop();  // единая точка входа для всех команд из Serial
+
+
+  reconnectMQTT();  // Проверка подключения к MQTT
+  mqttLoop();       // Поддержка соединения
+
+  static unsigned long lastMqtt = 0;
+  unsigned long nowMillis = millis();
+
+  if (nowMillis - lastMqtt >= 1000) {  // Каждую секунду
+    lastMqtt = nowMillis;
+
+    String rtcStr = String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());
+    String uptimeStr = String(nowMillis / 1000) + "s";
+
+    publishClockStatus(rtcStr, uptimeStr);
+  }
 }
