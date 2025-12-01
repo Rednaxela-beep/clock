@@ -4,7 +4,7 @@
 #include <Arduino.h>  // даёт uint8_t, int32_t и т.д.
 #include "secret.h"   // Подключаем приватные данные
 #define PROJECT_NAME "Ancient Clock Digital Heart"
-#define PROJECT_VERSION "1.1.1"  // Версия проекта
+#define PROJECT_VERSION "1.1.2"  // Версия проекта
 #define BUILD_DATE __DATE__      // Дата и Время сборки
 #define BUILD_TIME __TIME__      // автоматически подставляется при компиляции
 // MQTT настройки
