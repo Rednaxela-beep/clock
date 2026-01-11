@@ -1,8 +1,4 @@
 // main.cpp - Главный модуль. Отсчет времени и вызов в нужные моменты
-// arrow    - перевод стрелок
-// wi-fi    - подключение по WiFi и синхронизации времени (RTC)
-// chimes   - Бой молоточком
-// mqtt     - Публикация параметров на MQTT сервере
 #include "mqtt.h"  // заголовочный файл mqtt.h
 #include <Arduino.h>
 #include <time.h>  // для configTime, если понадобится позже
@@ -15,27 +11,21 @@
 #include "ota.h"
 
 // ====== Аппаратные объекты ======
-Servo mg90;      // Серво для молоточка
-RTC_DS3231 rtc;  // RTC модуль DS3231
-
-AccelStepper stepper(AccelStepper::HALF4WIRE, IN2, IN4, IN1, IN3);  // HALF4WIRE — полушаговый режим 28BYJ-48
+Servo mg90;                                                         // Серво для молоточка
+RTC_DS3231 rtc;                                                     // RTC модуль DS3231
+AccelStepper stepper(AccelStepper::HALF4WIRE, IN1, IN3, IN2, IN4);  // HALF4WIRE — полушаговый режим 28BYJ-48
 
 // ====== Глобальные переменные состояния ======
 bool syncedThisHour = false;  // Флаг синхронизации один раз в час
 bool systemReady = false;     // Флаг окончания загрузки
 bool microSwRaw() {           // ====== Сырой статус концевика для веб-монитора ======
   return digitalRead(MICROSW_PIN);
-}  // Глобальные объекты
-extern Servo mg90;
-extern RTC_DS3231 rtc;
-extern AccelStepper stepper;
+}
+// Глобальные объекты
 extern bool syncedThisHour;
-
 void connectToWiFi();
-
 // -----------------------------------------------------------------------------
 // Инициализация системы
-// -----------------------------------------------------------------------------
 void setupMain() {
   Serial.begin(115200);
   delay(500);  // Пауза для установки соединения с портом
@@ -62,14 +52,19 @@ void setupMain() {
     }
     delay(300);
   }
+  // обновляем глобальный флаг
+  rtcAvailable = rtcReady;
+  if (!rtcAvailable) {
+    Serial.println("⚠️ RTC модуль не найден, используем системное время");
+  }
 
   delay(250);                          // Даем IDE время подключиться
-  DateTime now = syncRTC();            // Читаем актуальное время
+  DateTime now = syncRTC();            // Синхронизация по NTP
   SET_STATE(IDLE, now);                // Начальное состояние FSM
   webMonitorBegin();                   // Инициализация Веб Монитора
   pinMode(MICROSW_PIN, INPUT_PULLUP);  // Подтяжка MICROSW_PIN к HIGH. При замыкании микрика на землю получаем чёткий LOW
 
-  debugLogf("✅ Старт завершён. 🕰️ Текущее время RTC: %02d:%02d:%02d %02d.%02d.%04d\n",
+  debugLogf("✅ Старт завершён. 🕰️ Текущее время: %02d:%02d:%02d %02d.%02d.%04d\n",
             now.hour(), now.minute(), now.second(),
             now.day(), now.month(), now.year());
 
@@ -82,10 +77,9 @@ void setupMain() {
 }
 // -----------------------------------------------------------------------------
 // Основной цикл
-// -----------------------------------------------------------------------------
 void loopMain() {
   if (!systemReady) return;  // Защита от преждевременного вызова FSM
-  DateTime now = rtc.now();
+  DateTime now = getCurrentTime();
   int rtcMinute = now.minute();
   int currentSecond = now.second();
   bool microSwitchTriggered = microSw();  // задний фронт — сработка

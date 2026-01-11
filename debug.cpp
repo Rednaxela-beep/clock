@@ -1,5 +1,6 @@
 // debug.cpp Всё, что связано с логами, измерением параметров и прочее
 #include <Arduino.h>
+#include "main.h"
 #include <WiFi.h>
 #include <WebServer.h>
 #include "debug.h"
@@ -7,6 +8,7 @@
 #include "config.h"
 #include "arrow.h"
 #include "chimes.h"  // для управления молоточком
+#include "wi-fi.h"
 
 extern ArrowState arrowState;
 extern int StepsForMinute;
@@ -33,7 +35,7 @@ void debugLogf(const char* fmt, ...) {
   vsnprintf(msgBuf, sizeof(msgBuf), fmt, args);
   va_end(args);
 
-  DateTime now = rtc.now();
+  DateTime now = getCurrentTime();
   char timeBuf[16];
   snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d:%02d;",
            now.hour(), now.minute(), now.second());
@@ -93,7 +95,7 @@ void webMonitorBegin() {
   // JSON статус
   dbgServer.on("/status", HTTP_GET, []() {
     char buf[32];
-    DateTime now = rtc.now();
+    DateTime now = getCurrentTime();
     snprintf(buf, sizeof(buf), "%02d:%02d:%02d",
              now.hour(), now.minute(), now.second());
 
@@ -133,15 +135,15 @@ void debugDump(DateTime now, bool microSwitchTriggered) {
   Serial.println(line);
   logStore(line);
 
-  line = String("🎯 arrowState: ") + stateName(arrowState);
+  line = String("🎯 Current Position: ") + stepper.currentPosition();
   Serial.println(line);
   logStore(line);
 
-  line = String("📍 stepper.currentPosition(): ") + stepper.currentPosition();
+  line = String("📍 stepperMaxSpeed: ") + stepperMaxSpeed;
   Serial.println(line);
   logStore(line);
 
-  line = String("📐 stepper.distanceToGo(): ") + stepper.distanceToGo();
+  line = String("📐 stepperAcceleration: ") + stepperAcceleration;
   Serial.println(line);
   logStore(line);
 
@@ -158,7 +160,7 @@ void debugSerialLoop() {
   cmd.trim();
 
   if (cmd == "d") {
-    DateTime now = rtc.now();
+    DateTime now = getCurrentTime();
     debugDump(now, microSwitchTriggered);
     return;
   }
