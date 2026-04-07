@@ -64,7 +64,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
   if (microSwitchTriggered && arrowState == MOVING) {
     debugLogf("targetMinute=%d; stepperPos=%ld",
               targetMinute, stepper.currentPosition());
-/* Пока просто наблюдаем без корректировки 
+// Пока просто наблюдаем без корректировки 
     if (targetMinute == 0) {  // ✅ Нулевая минута
       long correctionSteps = correctionOffset;
       stepper.move(correctionSteps);
@@ -85,7 +85,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
     } else {
       debugLogf("❌ Микрик на минуте %d. Корректировка не проводится", targetMinute);
       return;
-    }      */
+    }      // конец блока корректировки
   }
 
   // 🎯 Основной конечный автомат

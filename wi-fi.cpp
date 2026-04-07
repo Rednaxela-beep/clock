@@ -7,7 +7,7 @@
 #include "wi-fi.h"
 
 // -----------------------------------------------------------------------------
-// Подключение к Wi‑Fi (устранение 'WiFi' was not declared in this scope и 'WL_CONNECTED' was not declared in this scope)
+// Подключение к Wi-Fi (устранение 'WiFi' was not declared in this scope и 'WL_CONNECTED' was not declared in this scope)
 // -----------------------------------------------------------------------------
 #include "config.h"  // WIFI_SSID, WIFI_PASSWORD
 
@@ -29,22 +29,23 @@ void connectToWiFi() {
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n✅ Wi‑Fi подключен!");
+    Serial.println("\n✅ Wi-Fi подключен!");
     Serial.print("📡 IP адрес: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println("\n❌ Не удалось подключиться к Wi‑Fi!");
+    Serial.println("\n❌ Не удалось подключиться к Wi-Fi!");
   }
 }
 // ====== Обёртка для получения времени ======
 DateTime getCurrentTime() {
-  if (rtc.begin()) {  // Если RTC отвечает — используем его
+  if (rtcAvailable) {
+    timeSource = "RTC";  // Если RTC отвечает — используем его
     return rtc.now();
   }
-
-  // Если RTC не отвечает — используем системное время ESP32
+  // Если RTC недоступен — используем системное время ESP32
   struct tm timeinfo;
   if (getLocalTime(&timeinfo)) {
+    timeSource = "NTP";
     return DateTime(
       timeinfo.tm_year + 1900,
       timeinfo.tm_mon + 1,
@@ -53,10 +54,12 @@ DateTime getCurrentTime() {
       timeinfo.tm_min,
       timeinfo.tm_sec);
   }
+  // Фолбэк на millis()
   unsigned long elapsed = millis() - baseMillis;
   timeSource = "MILLIS";
   return baseDateTime + TimeSpan(elapsed / 1000);
 }
+
 // -----------------------------------------------------------------------------
 // Синхронизация RTC по NTP
 // -----------------------------------------------------------------------------

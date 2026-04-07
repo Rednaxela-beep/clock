@@ -36,7 +36,7 @@ void setupMain() {
   chimesetup();     // Инициализация молоточка
   connectToWiFi();  // Подключение к WiFi
 
-  Wire.begin(5, 6);  // Шина RTC: SDA=D4 (GPIO5), SCL=D5 (GPIO6)
+  Wire.begin(SDA_PIN, SCL_PIN);  // Шина RTC из config.cpp
   delay(50);         // 🧘 Даем шине стабилизироваться
 
   // Инициализация скорости и ускорения мотора
