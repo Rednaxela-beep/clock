@@ -6,8 +6,11 @@
 
 // Глобальное состояние стрелки
 enum ArrowState {
-    IDLE,     // Ожидание
-    MOVING,   // Двигаем стрелку
+  IDLE,
+  MOVING,
+  CORRECT_LAG,      // догоняющая коррекция (отставание)
+  CORRECT_ADVANCE,  // коррекция опережения (возврат назад)
+  CORRECT_FINE      // тонкая доводка после сработки микрика
 };
 
 extern int lastRtcMinute; // Видимость для Debug.cpp 

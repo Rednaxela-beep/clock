@@ -9,8 +9,10 @@ ArrowState arrowState = IDLE;
 
 // Локальные счётчики/состояния конечного автомата
 int lastRtcMinute = -1;
+static int lastRtcHour = -1;
 uint8_t invalidSecond = 255;
 static bool correctionApplied = false;
+static bool correctionThisHour = false;  // была ли уже коррекция (любая) в этом часу
 
 static ArrowState lastState = IDLE;  // локальная "память" смен состояния
 static bool firstLoop = true;        // пропуск первого цикла
@@ -22,21 +24,27 @@ DateTime arrowStateChangedAt;  // Глобальная метка времени
 // -----------------------------------------------------------------------------
 // Универсальная функция смены состояния конечного автомата
 // -----------------------------------------------------------------------------
+bool isMotionState(ArrowState s) {
+  return (s == MOVING || s == CORRECT_LAG || s == CORRECT_ADVANCE || s == CORRECT_FINE);
+}
+
 void SET_STATE(ArrowState newState, DateTime now) {
   if (arrowState != newState) {
-    // *** спец-логика для перехода MOVING → IDLE
-    if (arrowState == MOVING && newState == IDLE) {
-      stepper.setCurrentPosition(0);  // сбрасываем позицию
-      stepper.disableOutputs();       // отключаем питание
-      stepperEnabled = false;         // Остановка и обнуление при переходе MOVING → IDLE"
+
+    if (isMotionState(arrowState) && newState == IDLE) {
+      stepper.setCurrentPosition(0);
+      stepper.disableOutputs();
+      stepperEnabled = false;
     }
-    if (newState == MOVING) {
-      correctionApplied = false;  // 🔄 Сброс при новом движении
+
+    if (!isMotionState(arrowState) && isMotionState(newState)) {
+      correctionApplied = false;
       stepper.enableOutputs();
       stepperEnabled = true;
     }
+
     arrowState = newState;
-    arrowStateChangedAt = now;  // таймстемп
+    arrowStateChangedAt = now;
   }
 }
 
@@ -44,13 +52,20 @@ void SET_STATE(ArrowState newState, DateTime now) {
 // Конечный автомат движения и корректировки стрелки
 // -----------------------------------------------------------------------------
 void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microSwitchTriggered) {
+
   static bool firstLoop = true;
   int targetMinute = (rtcMinute + 1) % 60;
   uint8_t startSecond = stepIntervalSec - transitionTimeSec;
+
+  if (now.hour() != lastRtcHour) {
+    lastRtcHour = now.hour();
+    correctionThisHour = false;
+  }
+
   if (startSecond >= stepIntervalSec) startSecond = 0;
 
   if (microSwitchTriggered && arrowState != MOVING) {
-    return;  // ⚠️ Микрик сработал вне движения — игнорируем
+    return;
   }
 
   if (firstLoop) {
@@ -61,45 +76,35 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 
   // 🐶 Сторож микрика в MOVING
   if (microSwitchTriggered && arrowState == MOVING) {
+
+    // Опережение
+    if (targetMinute >= 45 && targetMinute <= 59 && !correctionThisHour) {
+      SET_STATE(CORRECT_ADVANCE, now);
+      return;
+    }
+
     debugLogf("targetMinute=%d; stepperPos=%ld",
               targetMinute, stepper.currentPosition());
-    // Корректировки
-    if (targetMinute == 0) {  // ✅ Нулевая минута
-      correctionSteps = correctionOffset;
-
-      stepper.move(correctionSteps);
-      debugLogf("🕒 Микрик на 0-й минуте. Стандартная доводка до нуля %ld шагов", correctionSteps);
-
-    } else if (targetMinute >= 45 && targetMinute <= 59) {  // Опережение
-      stepper.stop();                                       // 🕒 Опережение
-      delay(50);
-      int minutesEarly = 60 - targetMinute;
-      correctionSteps = -StepsForMinute * minutesEarly + correctionOffset;
-      stepper.move(correctionSteps);
-      debugLogf("🕒 Опережение: возвращаем стрелку на %d минут назад %ld шагов", minutesEarly, correctionSteps);
-    } else if (targetMinute >= 1 && targetMinute <= 15) {  // 🐢 Отставание
-      correctionSteps = StepsForMinute * targetMinute + correctionOffset;
-      stepper.moveTo(stepper.currentPosition() + correctionSteps);
-      debugLogf("🐢 Отставание: продвигаем стрелку на %d минут вперёд %ld шагов", targetMinute, correctionSteps);
-
-    } else {
-      debugLogf("❌ Микрик на минуте %d. Корректировка не проводится", targetMinute);
-      return;
-    }  // конец блока корректировки
   }
 
   // 🎯 =============== Основной конечный автомат ===============
   switch (arrowState) {
+
     case IDLE:
       if (rtcMinute != lastRtcMinute) {
         lastRtcMinute = rtcMinute;
         invalidSecond = 255;
       }
 
-      if ((currentSecond % stepIntervalSec) == startSecond && currentSecond != invalidSecond && !stepper.isRunning()) {
+      if ((currentSecond % stepIntervalSec) == startSecond &&
+          currentSecond != invalidSecond &&
+          !stepper.isRunning()) {
+
         invalidSecond = currentSecond;
+
         Serial.printf("%02d:%02d:%02d; ▶️ Переход на минуту %02d\n",
                       now.hour(), now.minute(), now.second(), targetMinute);
+
         stepper.move(stepper.currentPosition() + StepsForMinute);
         SET_STATE(MOVING, now);
       }
@@ -107,15 +112,97 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 
     case MOVING:
       if (!stepper.isRunning()) {
-        // ждём 50–100 мс, чтобы механика успокоилась
-        delay(80);
-        if (!stepper.isRunning()) {
-          SET_STATE(IDLE, now);
+
+        delay(120);
+
+        if (targetMinute == 0 &&
+            !microSwitchTriggered &&
+            !correctionThisHour) {
+
+          SET_STATE(CORRECT_LAG, now);
+          return;
         }
+
+        SET_STATE(IDLE, now);
       }
       break;
+
+    case CORRECT_LAG: {
+      static long lagSteps = 0;
+
+      if (stepper.isRunning()) return;
+
+      if (microSwitchTriggered) {
+        correctionThisHour = true;
+        lagSteps = 0;
+        SET_STATE(CORRECT_FINE, now);
+        return;
+      }
+
+      if (lagSteps > StepsForMinute * 15) {
+        Serial.println("❌ ERROR: Lag correction exceeded 15 minutes!");
+        SET_STATE(IDLE, now);
+        return;
+      }
+
+      stepper.move(StepsForMinute);
+      lagSteps += StepsForMinute;
+      return;
+    }
+    break;
+
+    case CORRECT_ADVANCE: {
+      static bool started = false;
+
+      if (stepper.isRunning()) return;
+
+      if (!started) {
+        int minutesEarly = 60 - targetMinute;
+        correctionSteps = -StepsForMinute * minutesEarly + correctionOffset;
+
+        debugLogf("🕒 CORRECT_ADVANCE: возврат на %d минут (%ld шагов)",
+                  minutesEarly, correctionSteps);
+
+        stepper.move(correctionSteps);
+        started = true;
+        return;
+      }
+
+      if (!stepper.isRunning()) {
+        started = false;
+        correctionThisHour = true;
+        SET_STATE(CORRECT_FINE, now);
+      }
+      return;
+    }
+    break;
+
+    case CORRECT_FINE: {
+      static bool started = false;
+
+      if (stepper.isRunning()) return;
+
+      if (!started) {
+        correctionSteps = correctionOffset;
+
+        debugLogf("🕒 CORRECT_FINE: доводка %ld шагов", correctionSteps);
+
+        stepper.move(correctionSteps);
+        started = true;
+        return;
+      }
+
+      if (!stepper.isRunning()) {
+        started = false;
+        correctionThisHour = true;
+        SET_STATE(IDLE, now);
+      }
+      return;
+    }
+    break;
   }
-}  // ← arrowFSM_update закрыта
+}
+
 // -----------------------------------------------------------------------------
 // Функция: считаем, что стрелка "ещё движется" 200 мс после выхода из MOVING
 // -----------------------------------------------------------------------------
@@ -127,10 +214,11 @@ bool isMovingOrJustStopped() {
     return true;
   }
 
-  return (millis() - lastMovingTime) < 200;  // хвост 200 мс
+  return (millis() - lastMovingTime) < 200;
 }
+
 // -----------------------------------------------------------------------------
-// Обработка срабатывания концевика (edge-triggered + debounce lockout)
+// Обработка срабатывания концевика
 // -----------------------------------------------------------------------------
 bool microSw() {
   static int lastSignal = LOW;
@@ -147,7 +235,6 @@ bool microSw() {
   int signal = digitalRead(MICROSW_PIN);
   unsigned long nowMillis = millis();
 
-  // Взвод: LOW → HIGH
   if (signal == HIGH && lastSignal == LOW) {
     lastDebounceVZVOD = nowMillis;
   }
@@ -159,7 +246,6 @@ bool microSw() {
     }
   }
 
-  // Сработка: HIGH → LOW
   if (signal == LOW && lastSignal == HIGH) {
     lastDebounceSRAB = nowMillis;
   }
@@ -187,4 +273,4 @@ bool microSw() {
   lastSignal = signal;
   return false;
 }
-// ========== КОНЕЦ arrow.cpp ==========
+// Конец arrow.cpp
