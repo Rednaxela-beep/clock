@@ -8,7 +8,6 @@
 #define PROJECT_VERSION "1.1.3"  // Версия проекта
 #define BUILD_DATE __DATE__      // Дата и Время сборки
 #define BUILD_TIME __TIME__      // автоматически подставляется при компиляции
-#define WEB_PORT 80              // порт странички мониторинга
 // ====== Шаговый мотор стрелок (28BYJ-48 через ULN2003) ======
 #define IN1 D10  // GPIO9 (физически D10)
 #define IN2 D9   // GPIO8 (физически D9)
@@ -20,7 +19,11 @@
 #define MICROSW_PIN D2  // Пин микрика
 // ====== I2C для RTC DS3231M ======
 #define SDA_PIN D4  // GPIO5  (физически D4)
-#define SCL_PIN D5  // GPIO6  (физически D5)
+#define SCL_PIN D1  // GPIO6  (физически D5)
+// MQTT настройки
+#define MQTT_SERVER "blog.umd.by"
+#define MQTT_PORT   1883
+#define MQTT_TOPIC_METRICS "ancient_clock/metrics"
 
 // Флаги состояния, переменные и метки времени
 const unsigned long DEBOUNCE_DELAY = 10;  // Антидребезг (мс)
@@ -30,10 +33,6 @@ extern String ntpLastSyncTime;
 extern String timeSource;
 extern unsigned long baseMillis;  // точка отсчёта
 extern DateTime baseDateTime;     // реальное время на момент синхронизации
-// MQTT настройки
-extern const char* MQTT_SERVER;
-extern const int MQTT_PORT;
-extern const char* MQTT_TOPIC;
 // Параметры движения стрелок
 extern int StepsForMinute;             // шагов на минуту
 extern const int corrSteps;            // Ожидаемая до нуля позиция срабатывания микрика

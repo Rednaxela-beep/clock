@@ -8,16 +8,12 @@ String timeSource = "UNKNOWN";  // Источник времени: RTC / NTP / 
 // Базовые метки для виртуального RTC
 unsigned long baseMillis = 0;  // точка отсчёта
 DateTime baseDateTime;         // реальное время на момент синхронизации
-// MQTT параметры
-const char* MQTT_SERVER = "broker.hivemq.com";    // публичный брокер HiveMQ
-const int MQTT_PORT = 1883;                       // WebSocket TLS-порт
-const char* MQTT_TOPIC = "ancient_clock/status";  // Топик
 
 int StepsForMinute = -685;             // Одна минута в полушаговом режиме = теоритически 690 шагов
 float stepperMaxSpeed = 550;           // (550) Скорость мотора - в теории до тысячи но на практике больше 750-800 не стоит
 float stepperAcceleration = 250;       // (950) Поиск оптимального ускорения...
 const int corrSteps = 0;               // Микрик срабатывает за столько шагов до нуля
-const float correctionPercent = 0.5f;  // Небольшая поправка (0.1f=10%) положения стрелки в ключевом моменте корректировки
+const float correctionPercent = 0.6f;  // Небольшая поправка (0.6f=60%) положения стрелки в ключевом моменте корректировки
 const int correctionOffset = round(StepsForMinute * correctionPercent);
 bool microSwitchTriggered = false;
 bool systemIdle = false;         // признак "система в покое"

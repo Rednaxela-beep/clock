@@ -15,9 +15,9 @@ static bool correctionApplied = false;
 static ArrowState lastState = IDLE;  // локальная "память" смен состояния
 static bool firstLoop = true;        // пропуск первого цикла
 bool stepperEnabled = false;
+long correctionSteps = 0;  // Значение корректировки глобально для JSON
 
-// Глобальная метка времени смены состояния
-DateTime arrowStateChangedAt;
+DateTime arrowStateChangedAt;  // Глобальная метка времени смены состояния
 
 // -----------------------------------------------------------------------------
 // Универсальная функция смены состояния конечного автомата
@@ -44,7 +44,6 @@ void SET_STATE(ArrowState newState, DateTime now) {
 // Конечный автомат движения и корректировки стрелки
 // -----------------------------------------------------------------------------
 void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microSwitchTriggered) {
-  static uint8_t invalidSecond = 255;
   static bool firstLoop = true;
   int targetMinute = (rtcMinute + 1) % 60;
   uint8_t startSecond = stepIntervalSec - transitionTimeSec;
@@ -64,28 +63,29 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
   if (microSwitchTriggered && arrowState == MOVING) {
     debugLogf("targetMinute=%d; stepperPos=%ld",
               targetMinute, stepper.currentPosition());
-// Пока просто наблюдаем без корректировки 
+    // Корректировки
     if (targetMinute == 0) {  // ✅ Нулевая минута
-      long correctionSteps = correctionOffset;
+      correctionSteps = correctionOffset;
+
       stepper.move(correctionSteps);
       debugLogf("🕒 Микрик на 0-й минуте. Стандартная доводка до нуля %ld шагов", correctionSteps);
 
-   } else if (targetMinute >= 45 && targetMinute <= 59) {
-      stepper.stop();  // 🕒 Опережение
+    } else if (targetMinute >= 45 && targetMinute <= 59) {  // Опережение
+      stepper.stop();                                       // 🕒 Опережение
       delay(50);
       int minutesEarly = 60 - targetMinute;
-      long correctionSteps = -StepsForMinute * minutesEarly + correctionOffset;
+      correctionSteps = -StepsForMinute * minutesEarly + correctionOffset;
       stepper.move(correctionSteps);
       debugLogf("🕒 Опережение: возвращаем стрелку на %d минут назад %ld шагов", minutesEarly, correctionSteps);
     } else if (targetMinute >= 1 && targetMinute <= 15) {  // 🐢 Отставание
-      long correctionSteps = StepsForMinute * targetMinute + correctionOffset;
+      correctionSteps = StepsForMinute * targetMinute + correctionOffset;
       stepper.moveTo(stepper.currentPosition() + correctionSteps);
       debugLogf("🐢 Отставание: продвигаем стрелку на %d минут вперёд %ld шагов", targetMinute, correctionSteps);
- 
+
     } else {
       debugLogf("❌ Микрик на минуте %d. Корректировка не проводится", targetMinute);
       return;
-    }      // конец блока корректировки
+    }  // конец блока корректировки
   }
 
   // 🎯 Основной конечный автомат
@@ -107,12 +107,28 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 
     case MOVING:
       if (!stepper.isRunning()) {
-        SET_STATE(IDLE, now);
+        // ждём 50–100 мс, чтобы механика успокоилась
+        delay(80);
+        if (!stepper.isRunning()) {
+          SET_STATE(IDLE, now);
+        }
       }
       break;
   }
 }  // ← arrowFSM_update закрыта
+// -----------------------------------------------------------------------------
+// Функция: считаем, что стрелка "ещё движется" 200 мс после выхода из MOVING
+// -----------------------------------------------------------------------------
+bool isMovingOrJustStopped() {
+  static unsigned long lastMovingTime = 0;
 
+  if (arrowState == MOVING) {
+    lastMovingTime = millis();
+    return true;
+  }
+
+  return (millis() - lastMovingTime) < 200;  // хвост 200 мс
+}
 // -----------------------------------------------------------------------------
 // Обработка срабатывания концевика (edge-triggered + debounce lockout)
 // -----------------------------------------------------------------------------
@@ -151,7 +167,7 @@ bool microSw() {
     if (armed) {
       unsigned long dt = nowMillis - triggerStart;
 
-      if (arrowState == MOVING) {
+      if (isMovingOrJustStopped()) {
         if (dt >= MIN_TRIGGER_TIME && dt <= MAX_TRIGGER_TIME) {
           Serial.printf("🔘 Концевик сработал!");
           armed = false;

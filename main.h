@@ -24,6 +24,3 @@ void setupMain();
 void loopMain();
 
 void connectToWiFi();  // Подключение к Wi‑Fi
-
-void webMonitorBegin();  // Web Monitor
-void webMonitorLoop();

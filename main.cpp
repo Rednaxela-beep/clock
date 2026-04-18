@@ -24,6 +24,8 @@ bool microSwRaw() {           // ====== Сырой статус концевик
 // Глобальные объекты
 extern bool syncedThisHour;
 void connectToWiFi();
+uint32_t avgLoopUs = 0;
+
 // -----------------------------------------------------------------------------
 // Инициализация системы
 void setupMain() {
@@ -37,7 +39,7 @@ void setupMain() {
   connectToWiFi();  // Подключение к WiFi
 
   Wire.begin(SDA_PIN, SCL_PIN);  // Шина RTC из config.cpp
-  delay(50);         // 🧘 Даем шине стабилизироваться
+  delay(50);                     // 🧘 Даем шине стабилизироваться
 
   // Инициализация скорости и ускорения мотора
   stepper.setMaxSpeed(stepperMaxSpeed);
@@ -48,6 +50,7 @@ void setupMain() {
   for (int i = 0; i < 3; i++) {
     if (rtc.begin()) {
       rtcReady = true;
+      Serial.println("👌 RTC модуль подключен");
       break;
     }
     delay(300);
@@ -61,7 +64,6 @@ void setupMain() {
   delay(250);                          // Даем IDE время подключиться
   DateTime now = syncRTC();            // Синхронизация по NTP
   SET_STATE(IDLE, now);                // Начальное состояние FSM
-  webMonitorBegin();                   // Инициализация Веб Монитора
   pinMode(MICROSW_PIN, INPUT_PULLUP);  // Подтяжка MICROSW_PIN к HIGH. При замыкании микрика на землю получаем чёткий LOW
 
   debugLogf("✅ Старт завершён. 🕰️ Текущее время: %02d:%02d:%02d %02d.%02d.%04d\n",
@@ -78,6 +80,15 @@ void setupMain() {
 // -----------------------------------------------------------------------------
 // Основной цикл
 void loopMain() {
+  extern uint32_t avgLoopUs;
+  static uint32_t lastLoopUs = 0;
+
+  uint32_t nowUs = micros();
+  uint32_t loopTime = nowUs - lastLoopUs;
+  lastLoopUs = nowUs;
+  // Экспоненциальное сглаживание (10%)
+  avgLoopUs = (avgLoopUs * 9 + loopTime) / 10;
+
   if (!systemReady) return;  // Защита от преждевременного вызова FSM
   DateTime now = getCurrentTime();
   int rtcMinute = now.minute();
@@ -108,7 +119,6 @@ void loopMain() {
   handleHourlySync(now);                                                 // Синхронизация каждый час (определена в wi-fi.cpp)
   arrowFSM_update(now, rtcMinute, currentSecond, microSwitchTriggered);  // Обновление FSM стрелок
 
-  webMonitorLoop();   // Обновление Веб Монитора
   otaLoop();          // Обработка OTA
   debugSerialLoop();  // единая точка входа для всех команд из Serial
 
@@ -119,12 +129,12 @@ void loopMain() {
   static unsigned long lastMqtt = 0;
   unsigned long nowMillis = millis();
 
-  if (nowMillis - lastMqtt >= 1000) {  // Каждую секунду
+  if (nowMillis - lastMqtt >= 1000) {
     lastMqtt = nowMillis;
 
     String rtcStr = String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());
     String uptimeStr = String(nowMillis / 1000) + "s";
 
-    publishClockStatus(rtcStr, uptimeStr);
+    publishMetrics(now);  // Публикация метрик контроллера
   }
 }
