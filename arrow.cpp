@@ -88,7 +88,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
     }  // конец блока корректировки
   }
 
-  // 🎯 Основной конечный автомат
+  // 🎯 =============== Основной конечный автомат ===============
   switch (arrowState) {
     case IDLE:
       if (rtcMinute != lastRtcMinute) {

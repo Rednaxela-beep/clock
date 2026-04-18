@@ -203,3 +203,10 @@ timeSource — текущий источник времени (RTC, NTP, MILLIS)
 🧹 Чистка кода
 Устранены ошибки «multiple definition» за счёт правильного разделения extern и определений.
 Упорядочены #include — теперь debug.cpp подключает wi-fi.h, а не <WiFi.h>.
+
+## [1.2.0] 2026-04-18 — MQTT refactor
+- Added RAM percent metrics
+- Cleaned JSON structure
+- Updated UI RAM display
+- Removed ram_total from MQTT
+- Improved readability and stability
