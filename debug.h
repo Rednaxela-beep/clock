@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <RTClib.h>
 #include "arrow.h"  // enum ArrowState и extern arrowState уже здесь
+#include "config.h"
 void debugLogf(const char* fmt, ...);  // "Обёрточный логгер" - единая точка вывода логов для замены Serial.println
 
 // Функция для получения имени состояния
