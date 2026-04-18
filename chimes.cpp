@@ -39,11 +39,11 @@ void hit(int count) {
   debugLogf("⚡Запускаем бой: %d ударов", count);
   // Serial.printf("⚡ Запускаем бой: %d ударов\n", count);
 
-  mg90.attach(SERVO_PIN, 500, 2400);
-  mg90.setPeriodHertz(50);  // стабильный частотный режим
-
   for (int i = 0; i < count; i++) {
     Serial.printf("💥 Удар №%d ", i + 1);
+
+    mg90.attach(SERVO_PIN, 500, 2400);
+    mg90.setPeriodHertz(50);  // стабильный частотный режим
 
     mg90.write(tailAngle);  // УДАР!
     delay(100);             // стабилизация
@@ -51,9 +51,9 @@ void hit(int count) {
     smoothMove(tailAngle, liftAngle, liftSpeed);  // взвод
     delay(100);                                   // можно убрать или оставить для плавности
 
+    mg90.detach();
+
     if (i < count - 1) delay(pauseBetweenHits);
   }
-
-  mg90.detach();
   Serial.println("✅ Бой завершён.");
 }
