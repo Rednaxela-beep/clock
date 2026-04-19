@@ -1,16 +1,15 @@
 // wi-fi.cpp функции сети TCP/IP
 #include <Arduino.h>  // обязательно первым
 #include <WiFi.h>
-#include <time.h>  // для NTP
+#include <time.h>     // для NTP
 
-#include "main.h"  // чтобы видеть rtc, syncedThisHour, arrowState, getCurrentTime и прочее
+#include "main.h"     // чтобы видеть rtc, syncedThisHour, arrowState, getCurrentTime и прочее
 #include "wi-fi.h"
+#include "config.h"   // WIFI_SSID, WIFI_PASSWORD, NTP_SERVERS и т.д.
 
 // -----------------------------------------------------------------------------
 // Подключение к Wi-Fi (устранение 'WiFi' was not declared in this scope и 'WL_CONNECTED' was not declared in this scope)
 // -----------------------------------------------------------------------------
-#include "config.h"  // WIFI_SSID, WIFI_PASSWORD
-
 void connectToWiFi() {
   Serial.print("🔌 Подключаемся к Wi-Fi: ");
   Serial.println(WIFI_SSID);
@@ -36,12 +35,16 @@ void connectToWiFi() {
     Serial.println("\n❌ Не удалось подключиться к Wi-Fi!");
   }
 }
-// ====== Обёртка для получения времени ======
+
+// -----------------------------------------------------------------------------
+// Обёртка для получения текущего времени
+// -----------------------------------------------------------------------------
 DateTime getCurrentTime() {
   if (rtcAvailable) {
     timeSource = "RTC";  // Если RTC отвечает — используем его
     return rtc.now();
   }
+
   // Если RTC недоступен — используем системное время ESP32
   struct tm timeinfo;
   if (getLocalTime(&timeinfo)) {
@@ -54,6 +57,7 @@ DateTime getCurrentTime() {
       timeinfo.tm_min,
       timeinfo.tm_sec);
   }
+
   // Фолбэк на millis()
   unsigned long elapsed = millis() - baseMillis;
   timeSource = "MILLIS";
@@ -64,63 +68,69 @@ DateTime getCurrentTime() {
 // Синхронизация RTC по NTP
 // -----------------------------------------------------------------------------
 DateTime syncRTC() {
-  const char* ntpServers[] = {
-    "time.belgim.by",
-    "1.by.pool.ntp.org",
-    "2.by.pool.ntp.org",
-    "time.windows.com"
-  };
-  const int ntpServerCount = sizeof(ntpServers) / sizeof(ntpServers[0]);
-  const long gmtOffset_sec = 3 * 3600;
-  const int daylightOffset_s = 0;
-
   struct tm timeinfo;
-  for (int i = 0; i < ntpServerCount; i++) {
+
+  for (int i = 0; i < NTP_SERVER_COUNT; i++) {
     Serial.print("🌐 NTP попытка: ");
-    Serial.println(ntpServers[i]);
+    Serial.println(NTP_SERVERS[i]);
 
-    configTime(gmtOffset_sec, daylightOffset_s, ntpServers[i]);
-    delay(1000);
+    configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVERS[i]);
 
-    if (getLocalTime(&timeinfo)) {
-      DateTime ntpTime(
-        timeinfo.tm_year + 1900,
-        timeinfo.tm_mon + 1,
-        timeinfo.tm_mday,
-        timeinfo.tm_hour,
-        timeinfo.tm_min,
-        timeinfo.tm_sec);
+    // Ждём реального ответа NTP (до 10 секунд)
+    Serial.print("⏳ Ждём NTP");
+    int tries = 0;
+    while (!getLocalTime(&timeinfo) && tries < 50) {  // 50 × 200мс = 10 секунд
+      Serial.print(".");
+      delay(200);
+      tries++;
+    }
 
-      baseMillis = millis();  // сохраняем базовую метку для millis‑отсчёта
-      baseDateTime = ntpTime;
+    if (!getLocalTime(&timeinfo)) {
+      Serial.println(" ❌ NTP не ответил");
+      continue;  // пробуем следующий сервер
+    }
 
-      ntpLastSyncOk = true;
-      ntpLastSyncTime = ntpTime.timestamp();
-      timeSource = "NTP";
+    Serial.println(" ✅");
 
-      DateTime rtcTime = getCurrentTime();
-      long diff = abs((long)(rtcTime.unixtime() - ntpTime.unixtime()));
+    // --- Успешно получили время ---
+    DateTime ntpTime(
+      timeinfo.tm_year + 1900,
+      timeinfo.tm_mon + 1,
+      timeinfo.tm_mday,
+      timeinfo.tm_hour,
+      timeinfo.tm_min,
+      timeinfo.tm_sec);
 
-      debugLogf("📊 Разница RTC vs NTP: %d сек\n", diff);
+    // обновляем базу для виртуального времени
+    baseMillis = millis();
+    baseDateTime = ntpTime;
 
-      if (diff > 1 && rtcAvailable) {
-        rtc.adjust(ntpTime);
-        debugLogf("✅ RTC синхронизировано: %02d:%02d:%02d",
-                  ntpTime.hour(), ntpTime.minute(), ntpTime.second());
-        return ntpTime;
-      } else {
-        if (rtcAvailable) {
-          Serial.println("⏱ RTC уже точное");
-        } else {
-          Serial.println("⏱ Виртуальное время синхронизировано");
-        }
-        return rtcTime;
-      }
+    ntpLastSyncOk = true;
+    ntpLastSyncTime = ntpTime.timestamp();
+    timeSource = "NTP";
+
+    // сравниваем с RTC
+    DateTime rtcTime = getCurrentTime();
+    long diff = abs((long)(rtcTime.unixtime() - ntpTime.unixtime()));
+
+    debugLogf("📊 Разница RTC vs NTP: %d сек\n", diff);
+
+    if (diff > 1 && rtcAvailable) {
+      rtc.adjust(ntpTime);
+      debugLogf("✅ RTC синхронизировано: %02d:%02d:%02d",
+                ntpTime.hour(), ntpTime.minute(), ntpTime.second());
+      return ntpTime;
     } else {
-      Serial.println("❌ Не удалось получить время");
+      if (rtcAvailable) {
+        Serial.println("⏱ RTC уже точное");
+      } else {
+        Serial.println("⏱ Виртуальное время синхронизировано");
+      }
+      return rtcTime;
     }
   }
 
+  // --- Все попытки провалились ---
   Serial.println("⚠️ Все попытки NTP провалились");
   ntpLastSyncOk = false;
   timeSource = rtcAvailable ? "RTC" : "MILLIS";
@@ -129,7 +139,7 @@ DateTime syncRTC() {
 }
 
 // -----------------------------------------------------------------------------
-// Ежечасная синхронизация (на 15‑й минуте, если FSM в IDLE)
+// Ежечасная синхронизация (на 45‑й минуте, если FSM в IDLE)
 // -----------------------------------------------------------------------------
 void handleHourlySync(DateTime now) {
   static int lastHour = -1;
@@ -146,9 +156,9 @@ void handleHourlySync(DateTime now) {
       syncedThisHour = true;
       String logMessage = "✅ RTC синхронизировано: " + syncedTime.timestamp();
       debugLogf(logMessage.c_str());
-
     } else {
       Serial.println("⚠️ Синхронизация не удалась");
     }
   }
 }
+// Конец wi-fi.cpp

@@ -28,3 +28,14 @@ int tailAngle = 25;           // Угол ухода привода из под 
 int liftSpeed = 20;           // Скорость взвода (мс/шаг)
 int pauseBetweenHits = 1000;  // Пауза между ударами (мс)
 int lastStrikeMinute = -1;    // Глобальная переменная для предотвращения повтора боя часов
+// ⚙️ Глобальные параметры синхронизации NTP
+const char* NTP_SERVERS[] = {
+    "192.168.137.110",
+    "time.belgim.by",
+    "1.by.pool.ntp.org",
+    "2.by.pool.ntp.org",
+    "time.windows.com"
+};
+const int NTP_SERVER_COUNT = sizeof(NTP_SERVERS) / sizeof(NTP_SERVERS[0]);
+const long GMT_OFFSET_SEC = 3 * 3600;
+const int DAYLIGHT_OFFSET_SEC = 0;

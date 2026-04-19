@@ -107,7 +107,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       }
       break;
 
-  // ---------------------------------------------------------
+      // ---------------------------------------------------------
     case MOVING:
 
       // движение завершилось
@@ -129,89 +129,60 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
         zeroTransitionActive = false;
         microTriggeredDuringMove = false;
         SET_STATE(IDLE, now);
-              }
+      }
       break;
 
-    // ---------------------------------------------------------
- case CORRECT_LAG:
-  Serial.println("CORRECT_LAG: начинаем коррекцию отставания");
-  {
-    static long lagSteps = 0;
-    static bool started = false;
-
-    if (!started) {
-      lagSteps = 0;      // ← сброс при входе в состояние
-      started = true;
-    }
-
-    if (stepper.isRunning()) return;
-
-    if (microSwitchTriggered) {
-      correctionThisHour = true;
-      lagSteps = 0;
-      started = false;   // выходим из состояния
-      SET_STATE(CORRECT_FINE, now);
-      return;
-    }
-
-    if (lagSteps > StepsForMinute * 15) {
-      Serial.println("❌ ERROR: Lag correction exceeded 15 minutes!");
-      started = false;   // выходим из состояния
-      SET_STATE(IDLE, now);
-      return;
-    }
-
-    stepper.move(StepsForMinute);
-    lagSteps += StepsForMinute;
-    return;
-  }
-    // ---------------------------------------------------------
-    case CORRECT_ADVANCE:
+      // ------------------ Корректировка отставания ---------------------------------------
+    case CORRECT_LAG:
       {
         static bool started = false;
+        static long targetSteps = 0;
 
-        if (stepper.isRunning()) return;
+        // 1) Ловим микрик во время движения
+        if (stepper.isRunning()) {
 
+          if (microSwitchTriggered) {
+            Serial.println("Корректировка отставания: микрик сработал — здесь СТОП!");
+
+            stepper.stop();  // попросить остановиться
+            while (stepper.isRunning()) {
+              stepper.run();  // дожать до реального стопа
+            }
+            stepper.disableOutputs();  // сбросить фазы
+            delay(5);                  // короткая пауза
+            stepper.enableOutputs();   // включить снова
+
+            stepper.setCurrentPosition(0);  // зафиксировать точку
+
+            started = false;
+            correctionThisHour = true;
+            microTriggeredDuringMove = false;
+
+            SET_STATE(IDLE, now);
+          }
+          return;
+        }
+
+        // 2) Первый вход
         if (!started) {
-          int minutesEarly = 60 - targetMinute;
-          correctionSteps = -StepsForMinute * minutesEarly + correctionOffset;
+          Serial.println("Корректировка отставания: начинаем коррекцию");
 
-          Serial.printf("🕒 CORRECT_ADVANCE: возврат на %d минут (%ld шагов)\n",
-                        minutesEarly, correctionSteps);
+          targetSteps = StepsForMinute * 15;
+          microTriggeredDuringMove = false;
 
-          stepper.move(correctionSteps);
+          stepper.move(targetSteps);
           started = true;
           return;
         }
 
+        // 3) Движение завершилось, но микрик НЕ сработал
+        Serial.println("❌ ERROR: Lag correction exceeded 15 minutes!");
         started = false;
-        correctionThisHour = true;
-        SET_STATE(CORRECT_FINE, now);
+        microTriggeredDuringMove = false;
+        SET_STATE(IDLE, now);
         return;
       }
-
-    // ---------------------------------------------------------
-    case CORRECT_FINE:
-      {
-        static bool started = false;
-
-        if (stepper.isRunning()) return;
-
-        if (!started) {
-          correctionSteps = correctionOffset;
-
-          Serial.printf("🕒 CORRECT_FINE: доводка %ld шагов\n", correctionSteps);
-
-          stepper.move(correctionSteps);
-          started = true;
-          return;
-        }
-
-        started = false;
-        correctionThisHour = true;
-        SET_STATE(IDLE, now);
-                return;
-      }
+      break;
   }
 }
 
