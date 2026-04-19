@@ -113,10 +113,10 @@ if ((rtcMinute == 0 || rtcMinute == 30) && rtcMinute != lastStrikeMinute) {
   // Двигаем шаговик, если нужно
   stepper.run();
 
-  if (stepper.distanceToGo() == 0) {  // Если шаговик доехал — переводим в IDLE и отключаем питание
-    SET_STATE(IDLE, now);
-    stepper.disableOutputs();
-  }
+  // if (stepper.distanceToGo() == 0) {  // Если шаговик доехал — переводим в IDLE и отключаем питание
+  //   SET_STATE(IDLE, now);
+  //   stepper.disableOutputs();
+  // }
 
   handleHourlySync(now);                                                 // Синхронизация каждый час (определена в wi-fi.cpp)
   arrowFSM_update(now, rtcMinute, currentSecond, microSwitchTriggered);  // Обновление FSM стрелок
