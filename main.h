@@ -18,6 +18,7 @@ extern AccelStepper stepper;
 extern bool syncedThisHour;
 bool microSwRaw();
 extern unsigned long baseMillis;
+extern volatile int pendingChimes; // Сколько ударов бить 
 
 // Прототипы "главных" функций
 void setupMain();

@@ -2,6 +2,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include "main.h"
+#include "arrow.h"
 #include "mqtt.h"
 #include "config.h"
 
@@ -16,28 +18,29 @@ void setupMQTT() {  // Инициализация MQTT-клиента
 }
 // Функция публикации метрик
 void publishMetrics(const DateTime& now) {
-  char payload[256];
+  char payload[384];
 
-  uint32_t ramFree  = heap_caps_get_free_size(MALLOC_CAP_DEFAULT);
-  uint32_t ramMin   = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT);
+  uint32_t ramFree = heap_caps_get_free_size(MALLOC_CAP_DEFAULT);
+  uint32_t ramMin = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT);
   uint32_t ramTotal = heap_caps_get_total_size(MALLOC_CAP_DEFAULT);  // только для расчёта %
 
   float ramFreePercent = (ramFree * 100.0f) / ramTotal;
-  float ramMinPercent  = (ramMin  * 100.0f) / ramTotal;
+  float ramMinPercent = (ramMin * 100.0f) / ramTotal;
 
   float loopMs = roundf((avgLoopUs / 1000.0f) * 100) / 100;
 
   snprintf(payload, sizeof(payload),
            "{"
-             "\"rtc\":\"%02d:%02d:%02d\","
-             "\"uptime\":%lu,"
-             "\"loop_ms\":%.2f,"
-             "\"rssi\":%d,"
-             "\"correctionSteps\":%ld,"
-             "\"ram_free\":%u,"
-             "\"ram_min_free\":%u,"
-             "\"ram_free_percent\":%.1f,"
-             "\"ram_min_percent\":%.1f"
+           "\"rtc\":\"%02d:%02d:%02d\","
+           "\"uptime\":%lu,"
+           "\"loop_ms\":%.2f,"
+           "\"rssi\":%d,"
+           "\"correctionSteps\":%ld,"
+           "\"ram_free\":%u,"
+           "\"ram_min_free\":%u,"
+           "\"ram_free_percent\":%.1f,"
+           "\"ram_min_percent\":%.1f,"
+           "\"fsm\":\"%s\""
            "}",
            now.hour(), now.minute(), now.second(),
            millis() / 1000,
@@ -47,8 +50,9 @@ void publishMetrics(const DateTime& now) {
            ramFree,
            ramMin,
            ramFreePercent,
-           ramMinPercent
-  );
+           ramMinPercent,
+           fsmToText(arrowState, (now.minute() + 1) % 60, pendingChimes)
+           );
 
   client.publish(MQTT_TOPIC_METRICS, payload);
 }
@@ -67,4 +71,4 @@ void reconnectMQTT() {
 void mqttLoop() {
   client.loop();
 }
-// ========== КОНЕЦ mqtt.cpp ==========
+// КОНЕЦ mqtt.cpp

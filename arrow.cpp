@@ -12,7 +12,8 @@ int lastRtcMinute = -1;
 static int lastRtcHour = -1;
 uint8_t invalidSecond = 255;
 static bool correctionApplied = false;
-static bool correctionThisHour = false;  // была ли уже коррекция (любая) в этом часу
+static bool correctionThisHour = false;    // была ли уже коррекция (любая) в этом часу
+static bool zeroTransitionActive = false;  // Флаг начала перехода на targetMinute == 0
 
 static ArrowState lastState = IDLE;  // локальная "память" смен состояния
 static bool firstLoop = true;        // пропуск первого цикла
@@ -91,19 +92,28 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
   switch (arrowState) {
 
     case IDLE:
-      if (rtcMinute != lastRtcMinute) {
+      if (pendingChimes > 0) {
+        int n = pendingChimes;
+        pendingChimes = 0;
+        hit(n);        // ← бой выполняется только в IDLE
+        return;
+    }
+    if (rtcMinute != lastRtcMinute) {
         lastRtcMinute = rtcMinute;
         invalidSecond = 255;
       }
 
-      if ((currentSecond % stepIntervalSec) == startSecond &&
-          currentSecond != invalidSecond &&
-          !stepper.isRunning()) {
+      if ((currentSecond % stepIntervalSec) == startSecond && currentSecond != invalidSecond && !stepper.isRunning()) {
 
         invalidSecond = currentSecond;
 
         Serial.printf("%02d:%02d:%02d; ▶️ Переход на минуту %02d\n",
                       now.hour(), now.minute(), now.second(), targetMinute);
+
+        if (targetMinute == 0)  // отлавливаем факт начала перехода на минуту 00
+          zeroTransitionActive = true;
+        else
+          zeroTransitionActive = false;
 
         stepper.move(stepper.currentPosition() + StepsForMinute);
         SET_STATE(MOVING, now);
@@ -115,91 +125,94 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 
         delay(120);
 
-        if (targetMinute == 0 &&
-            !microSwitchTriggered &&
-            !correctionThisHour) {
-
+        if (zeroTransitionActive && !microSwitchTriggered && !correctionThisHour) {
+          Serial.println("⚠️ CORRECT_LAG: микрик не сработал при переходе на 00");
+          zeroTransitionActive = false;
           SET_STATE(CORRECT_LAG, now);
           return;
         }
 
+        zeroTransitionActive = false;
         SET_STATE(IDLE, now);
       }
       break;
 
-    case CORRECT_LAG: {
-      static long lagSteps = 0;
+    case CORRECT_LAG:
+      {
+        static long lagSteps = 0;
 
-      if (stepper.isRunning()) return;
+        if (stepper.isRunning()) return;
 
-      if (microSwitchTriggered) {
-        correctionThisHour = true;
-        lagSteps = 0;
-        SET_STATE(CORRECT_FINE, now);
+        if (microSwitchTriggered) {
+          correctionThisHour = true;
+          lagSteps = 0;
+          SET_STATE(CORRECT_FINE, now);
+          return;
+        }
+
+        if (lagSteps > StepsForMinute * 15) {
+          Serial.println("❌ ERROR: Lag correction exceeded 15 minutes!");
+          SET_STATE(IDLE, now);
+          return;
+        }
+
+        stepper.move(StepsForMinute);
+        lagSteps += StepsForMinute;
         return;
       }
+      break;
 
-      if (lagSteps > StepsForMinute * 15) {
-        Serial.println("❌ ERROR: Lag correction exceeded 15 minutes!");
-        SET_STATE(IDLE, now);
+    case CORRECT_ADVANCE:
+      {
+        static bool started = false;
+
+        if (stepper.isRunning()) return;
+
+        if (!started) {
+          int minutesEarly = 60 - targetMinute;
+          correctionSteps = -StepsForMinute * minutesEarly + correctionOffset;
+
+          debugLogf("🕒 CORRECT_ADVANCE: возврат на %d минут (%ld шагов)",
+                    minutesEarly, correctionSteps);
+
+          stepper.move(correctionSteps);
+          started = true;
+          return;
+        }
+
+        if (!stepper.isRunning()) {
+          started = false;
+          correctionThisHour = true;
+          SET_STATE(CORRECT_FINE, now);
+        }
         return;
       }
+      break;
 
-      stepper.move(StepsForMinute);
-      lagSteps += StepsForMinute;
-      return;
-    }
-    break;
+    case CORRECT_FINE:
+      {
+        static bool started = false;
 
-    case CORRECT_ADVANCE: {
-      static bool started = false;
+        if (stepper.isRunning()) return;
 
-      if (stepper.isRunning()) return;
+        if (!started) {
+          correctionSteps = correctionOffset;
 
-      if (!started) {
-        int minutesEarly = 60 - targetMinute;
-        correctionSteps = -StepsForMinute * minutesEarly + correctionOffset;
+          debugLogf("🕒 CORRECT_FINE: доводка %ld шагов", correctionSteps);
 
-        debugLogf("🕒 CORRECT_ADVANCE: возврат на %d минут (%ld шагов)",
-                  minutesEarly, correctionSteps);
+          stepper.move(correctionSteps);
+          started = true;
+          return;
+        }
 
-        stepper.move(correctionSteps);
-        started = true;
+        if (!stepper.isRunning()) {
+          started = false;
+          correctionThisHour = true;
+          SET_STATE(IDLE, now);
+        }
         return;
       }
-
-      if (!stepper.isRunning()) {
-        started = false;
-        correctionThisHour = true;
-        SET_STATE(CORRECT_FINE, now);
-      }
-      return;
-    }
-    break;
-
-    case CORRECT_FINE: {
-      static bool started = false;
-
-      if (stepper.isRunning()) return;
-
-      if (!started) {
-        correctionSteps = correctionOffset;
-
-        debugLogf("🕒 CORRECT_FINE: доводка %ld шагов", correctionSteps);
-
-        stepper.move(correctionSteps);
-        started = true;
-        return;
-      }
-
-      if (!stepper.isRunning()) {
-        started = false;
-        correctionThisHour = true;
-        SET_STATE(IDLE, now);
-      }
-      return;
-    }
-    break;
+      break;
   }
 }
 
@@ -273,4 +286,34 @@ bool microSw() {
   lastSignal = signal;
   return false;
 }
+//функция преобразования FSM → текст
+const char* fsmToText(ArrowState s, int targetMinute, int pendingChimes) {
+    static char buf[64];
+
+    switch (s) {
+        case IDLE:
+            if (pendingChimes > 0) {
+                snprintf(buf, sizeof(buf), "Бой %d раз", pendingChimes);
+                return buf;
+            }
+            return "Ожидание";
+
+        case MOVING:
+            snprintf(buf, sizeof(buf), "Переход на минуту %02d", targetMinute);
+            return buf;
+
+        case CORRECT_LAG:
+            return "Коррекция отставания";
+
+        case CORRECT_ADVANCE:
+            return "Коррекция опережения";
+
+        case CORRECT_FINE:
+            return "Точная доводка";
+
+        default:
+            return "Неизвестно";
+    }
+}
+
 // Конец arrow.cpp

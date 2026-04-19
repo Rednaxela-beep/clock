@@ -26,3 +26,6 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
 
 // Концевик минутной стрелки (антидребезг + валидация)
 bool microSw();
+
+// Объявление функции преобразования FSM → текст
+const char* fsmToText(ArrowState s, int targetMinute, int pendingChimes);

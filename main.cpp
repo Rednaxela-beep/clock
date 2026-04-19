@@ -22,6 +22,7 @@ bool microSwRaw() {           // ====== Сырой статус концевик
   return digitalRead(MICROSW_PIN);
 }
 // Глобальные объекты
+volatile int pendingChimes = 0;
 extern bool syncedThisHour;
 void connectToWiFi();
 uint32_t avgLoopUs = 0;
@@ -98,16 +99,17 @@ void loopMain() {
   int hour = now.hour() % 12;  // Приводим к 12-часовому формату
   if (hour == 0) hour = 12;
 
-  // Вызов функции боя каждые полчаса
-  if ((rtcMinute == 0 || rtcMinute == 30) && rtcMinute != lastStrikeMinute) {
-    if (rtcMinute == 0) {
-      hit(hour);  // бой по часам
-    } else {
-      hit(1);  // один удар в половину
-    }
-    lastStrikeMinute = rtcMinute;
-  }
+  // Вызов боя каждые полчаса (отложенный)
+if ((rtcMinute == 0 || rtcMinute == 30) && rtcMinute != lastStrikeMinute) {
 
+    if (rtcMinute == 0) {
+        pendingChimes = hour;   // флаг: «нужно ударить "hour" раз»
+    } else {
+        pendingChimes = 1;      // один удар в половину
+    }
+
+    lastStrikeMinute = rtcMinute;
+}
   // Двигаем шаговик, если нужно
   stepper.run();
 
