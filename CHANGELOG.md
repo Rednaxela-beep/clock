@@ -210,3 +210,11 @@ timeSource — текущий источник времени (RTC, NTP, MILLIS)
 - Updated UI RAM display
 - Removed ram_total from MQTT
 - Improved readability and stability
+
+## [1.2.1] 2026-04-19 — FSM & microswitch stabilization
+Fixed MOVING → IDLE transition logic
+Removed conflicting stepper control from main loop
+Improved microswitch handling (instant trigger, no post-movement noise)
+Removed unnecessary delay in MOVING state
+Ensured consistent stepper power control via FSM only
+Added detailed movement logs for debugging and monitoring
