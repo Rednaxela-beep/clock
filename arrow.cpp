@@ -107,20 +107,19 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       }
       break;
 
-    // ---------------------------------------------------------
+  // ---------------------------------------------------------
     case MOVING:
 
       // движение завершилось
       if (!stepper.isRunning()) {
 
-        Serial.printf("MOVING: стоп, target=%02d, microDuring=%d\n",
-                      targetMinute, microTriggeredDuringMove);
-
-        delay(120);  // защита от позднего дребезга
+        // Serial.printf("MOVING: стоп, target=%02d, microDuring=%d\n",
+        //               targetMinute, microTriggeredDuringMove);
+        // delay(120);  // защита от позднего дребезга
 
         // микрик НЕ сработал во время движения → отставание
         if (zeroTransitionActive && !microTriggeredDuringMove && !correctionThisHour) {
-          Serial.println("⚠️ CORRECT_LAG: микрик НЕ сработал во время движения");
+          Serial.println("⚠️ Отставание: микрик НЕ сработал во время Перехода на минуту 00");
           zeroTransitionActive = false;
           microTriggeredDuringMove = false;
           SET_STATE(CORRECT_LAG, now);
@@ -134,31 +133,38 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microS
       break;
 
     // ---------------------------------------------------------
-    case CORRECT_LAG:
-      Serial.println("CORRECT_LAG: начинаем коррекцию отставания");
-      {
-        static long lagSteps = 0;
+ case CORRECT_LAG:
+  Serial.println("CORRECT_LAG: начинаем коррекцию отставания");
+  {
+    static long lagSteps = 0;
+    static bool started = false;
 
-        if (stepper.isRunning()) return;
+    if (!started) {
+      lagSteps = 0;      // ← сброс при входе в состояние
+      started = true;
+    }
 
-        if (microSwitchTriggered) {
-          correctionThisHour = true;
-          lagSteps = 0;
-          SET_STATE(CORRECT_FINE, now);
-          return;
-        }
+    if (stepper.isRunning()) return;
 
-        if (lagSteps > StepsForMinute * 15) {
-          Serial.println("❌ ERROR: Lag correction exceeded 15 minutes!");
-          SET_STATE(IDLE, now);
-                    return;
-        }
+    if (microSwitchTriggered) {
+      correctionThisHour = true;
+      lagSteps = 0;
+      started = false;   // выходим из состояния
+      SET_STATE(CORRECT_FINE, now);
+      return;
+    }
 
-        stepper.move(StepsForMinute);
-        lagSteps += StepsForMinute;
-        return;
-      }
+    if (lagSteps > StepsForMinute * 15) {
+      Serial.println("❌ ERROR: Lag correction exceeded 15 minutes!");
+      started = false;   // выходим из состояния
+      SET_STATE(IDLE, now);
+      return;
+    }
 
+    stepper.move(StepsForMinute);
+    lagSteps += StepsForMinute;
+    return;
+  }
     // ---------------------------------------------------------
     case CORRECT_ADVANCE:
       {
