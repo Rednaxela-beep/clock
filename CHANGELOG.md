@@ -210,3 +210,37 @@ timeSource — текущий источник времени (RTC, NTP, MILLIS)
 - Updated UI RAM display
 - Removed ram_total from MQTT
 - Improved readability and stability
+
+## [1.2.1] 2026-04-19 — FSM & microswitch stabilization
+Fixed MOVING → IDLE transition logic
+Removed conflicting stepper control from main loop
+Improved microswitch handling (instant trigger, no post-movement noise)
+Removed unnecessary delay in MOVING state
+Ensured consistent stepper power control via FSM only
+Added detailed movement logs for debugging and monitoring
+
+## [1.3.0 Beta] – 2026-04-19
+### Added
+- Полная переработка NTP-синхронизации: ожидание реального ответа, корректная работа с chrony.
+- Жёсткая остановка шаговика при срабатывании микрика (stop + disableOutputs).
+- Автоматическое выравнивание стрелки по нулю после коррекции.
+
+### Fixed
+- Исправлена ошибка, при которой стрелка проезжала до 15 минут при коррекции отставания.
+- Устранён завис драйвера шаговика при прерывании движения.
+- Устранены ложные NTP-ответы от ESP32 при старте.
+
+### Improved
+- Повышена точность коррекции отставания — стрелка теперь встаёт точно на ноль.
+- Упрощена логика FSM: удалено состояние CORRECT_FINE как ненужное.
+- Улучшены логи и читаемость Wi-Fi/NTP модуля.
+
+## [1.3.1 Beta] – 2026‑04‑20
+### Changed
+- Подготовлена архитектура для перехода на собственный UDP‑NTP клиент, 
+позволяющий отказаться от нестабильной логика SNTP/configTime, 
+вызывавшей 5‑минутные зависания при недоступности NTP сервера.
+
+### Planned
+- Реализация быстрого NTP-клиента без зависаний.
+- Мгновенное переключение между NTP-серверами.

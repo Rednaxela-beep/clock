@@ -9,9 +9,12 @@ void debugLogf(const char* fmt, ...);  // "Обёрточный логгер" - 
 // Функция для получения имени состояния
 inline const char* stateName(ArrowState state) {
   switch (state) {
-    case IDLE: return "IDLE";
-    case MOVING: return "MOVING";
-    default: return "UNKNOWN";
+    case IDLE:            return "IDLE";
+    case MOVING:          return "MOVING";
+    case CORRECT_LAG:     return "CORRECT_LAG";
+    case CORRECT_ADVANCE: return "CORRECT_ADVANCE";
+    case CORRECT_FINE:    return "CORRECT_FINE";
+    default:              return "UNKNOWN";
   }
 }
 

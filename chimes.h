@@ -4,8 +4,8 @@
 #include <Arduino.h>
 #include <ESP32Servo.h>
 
-// Сервообъект создаётся в main.cpp, но используется здесь
-extern Servo mg90;
+extern Servo mg90; // Сервообъект создаётся в main.cpp, но используется здесь
+extern volatile int pendingChimes; // глобальный флаг "Сколько раз нужно ударить”
 
 // Инициализация молоточка
 void chimesetup();
