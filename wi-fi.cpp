@@ -2,7 +2,6 @@
 #include <Arduino.h>  // обязательно первым
 #include <WiFi.h>
 #include <time.h>     // для NTP
-
 #include "main.h"     // чтобы видеть rtc, syncedThisHour, arrowState, getCurrentTime и прочее
 #include "wi-fi.h"
 #include "config.h"   // WIFI_SSID, WIFI_PASSWORD, NTP_SERVERS и т.д.
@@ -35,7 +34,6 @@ void connectToWiFi() {
     Serial.println("\n❌ Не удалось подключиться к Wi-Fi!");
   }
 }
-
 // -----------------------------------------------------------------------------
 // Обёртка для получения текущего времени
 // -----------------------------------------------------------------------------
@@ -68,18 +66,34 @@ DateTime getCurrentTime() {
 // Синхронизация RTC по NTP
 // -----------------------------------------------------------------------------
 DateTime syncRTC() {
+  Serial.println();
+  Serial.println("----- Синхронизация RTC по NTP -----");
+
   struct tm timeinfo;
 
+  // 0) Проверяем Wi-Fi
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("⚠️ Wi-Fi не подключён — пропускаем NTP");
+    timeSource = rtcAvailable ? "RTC" : "MILLIS";
+    return getCurrentTime();
+  }
+
+  // 1) Сбрасываем системное время ESP32, чтобы избежать ложных NTP-ответов
+  struct timeval tv = {0};
+  settimeofday(&tv, nullptr);
+
+  // 2) Перебираем NTP-серверы
   for (int i = 0; i < NTP_SERVER_COUNT; i++) {
     Serial.print("🌐 NTP попытка: ");
     Serial.println(NTP_SERVERS[i]);
 
+    // Запуск NTP через configTime
     configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVERS[i]);
 
-    // Ждём реального ответа NTP (до 10 секунд)
+    // 3) Ждём реального ответа NTP (до 10 секунд)
     Serial.print("⏳ Ждём NTP");
     int tries = 0;
-    while (!getLocalTime(&timeinfo) && tries < 50) {  // 50 × 200мс = 10 секунд
+    while (!getLocalTime(&timeinfo) && tries < 50) {
       Serial.print(".");
       delay(200);
       tries++;
@@ -92,52 +106,54 @@ DateTime syncRTC() {
 
     Serial.println(" ✅");
 
-    // --- Успешно получили время ---
+    // 4) Преобразуем в DateTime
     DateTime ntpTime(
       timeinfo.tm_year + 1900,
       timeinfo.tm_mon + 1,
       timeinfo.tm_mday,
       timeinfo.tm_hour,
       timeinfo.tm_min,
-      timeinfo.tm_sec);
+      timeinfo.tm_sec
+    );
 
-    // обновляем базу для виртуального времени
+    // 5) Если RTC есть — обновляем его
+    if (rtcAvailable) {
+      DateTime rtcTime = rtc.now();
+      long diff = ntpTime.unixtime() - rtcTime.unixtime();
+
+      Serial.print(ntpTime.timestamp());
+      Serial.print(";📊 Разница RTC vs NTP: ");
+      Serial.print(diff);
+      Serial.println(" сек");
+
+      if (abs(diff) > 1) {
+        rtc.adjust(ntpTime);
+        Serial.print(ntpTime.timestamp());
+        Serial.println(";✅ RTC синхронизировано");
+      } else {
+        Serial.println("⏱ RTC уже точное");
+      }
+    }
+
+    // 6) Обновляем виртуальные часы
     baseMillis = millis();
     baseDateTime = ntpTime;
-
-    ntpLastSyncOk = true;
-    ntpLastSyncTime = ntpTime.timestamp();
     timeSource = "NTP";
 
-    // сравниваем с RTC
-    DateTime rtcTime = getCurrentTime();
-    long diff = abs((long)(rtcTime.unixtime() - ntpTime.unixtime()));
+    Serial.print(ntpTime.timestamp());
+    Serial.println(";✅ Старт завершён. 🕰️ Текущее время: "
+                   + ntpTime.timestamp(DateTime::TIMESTAMP_DATE) + " "
+                   + ntpTime.timestamp(DateTime::TIMESTAMP_TIME));
 
-    debugLogf("📊 Разница RTC vs NTP: %d сек\n", diff);
-
-    if (diff > 1 && rtcAvailable) {
-      rtc.adjust(ntpTime);
-      debugLogf("✅ RTC синхронизировано: %02d:%02d:%02d",
-                ntpTime.hour(), ntpTime.minute(), ntpTime.second());
-      return ntpTime;
-    } else {
-      if (rtcAvailable) {
-        Serial.println("⏱ RTC уже точное");
-      } else {
-        Serial.println("⏱ Виртуальное время синхронизировано");
-      }
-      return rtcTime;
-    }
+    return ntpTime;
   }
 
-  // --- Все попытки провалились ---
-  Serial.println("⚠️ Все попытки NTP провалились");
-  ntpLastSyncOk = false;
+  // 7) Если все NTP-серверы недоступны
+  Serial.println("❌ Все NTP-серверы недоступны — fallback");
+
   timeSource = rtcAvailable ? "RTC" : "MILLIS";
-  Serial.println("⚠️ NTP синхронизация не удалась, часы идут своим ходом");
   return getCurrentTime();
 }
-
 // -----------------------------------------------------------------------------
 // Ежечасная синхронизация (на 45‑й минуте, если FSM в IDLE)
 // -----------------------------------------------------------------------------
