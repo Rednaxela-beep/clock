@@ -1,7 +1,7 @@
 // config.h Конфигурация пинов и основных переменных
 #pragma once
 #define PROJECT_NAME "Ancient Clock Digital Heart"
-#define PROJECT_VERSION "1.3.0 Beta"  // Версия проекта
+#define PROJECT_VERSION "1.3.1 Beta"  // Версия проекта
 #define BUILD_DATE __DATE__      // Дата и Время сборки
 #define BUILD_TIME __TIME__      // автоматически подставляется при компиляции
 
