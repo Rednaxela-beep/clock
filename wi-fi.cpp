@@ -2,9 +2,10 @@
 #include <Arduino.h>  // обязательно первым
 #include <WiFi.h>
 #include <time.h>     // для NTP
+#include <WiFiUdp.h>  // Используем UDP для NTP
 #include "main.h"     // чтобы видеть rtc, syncedThisHour, arrowState, getCurrentTime и прочее
 #include "wi-fi.h"
-#include "config.h"   // WIFI_SSID, WIFI_PASSWORD, NTP_SERVERS и т.д.
+#include "config.h"  // WIFI_SSID, WIFI_PASSWORD, NTP_SERVERS и т.д.
 
 // -----------------------------------------------------------------------------
 // Подключение к Wi-Fi (устранение 'WiFi' was not declared in this scope и 'WL_CONNECTED' was not declared in this scope)
@@ -63,13 +64,12 @@ DateTime getCurrentTime() {
 }
 
 // -----------------------------------------------------------------------------
-// Синхронизация RTC по NTP
+// Синхронизация RTC по NTP (собственный клиент)
 // -----------------------------------------------------------------------------
+bool getNtpTime(const char* server, DateTime& outTime);  // ПРОТОТИП getNtpTime ДЛЯ КОМПИЛЯТОРА
 DateTime syncRTC() {
   Serial.println();
-  Serial.println("----- Синхронизация RTC по NTP -----");
-
-  struct tm timeinfo;
+  Serial.println("----- Синхронизация RTC по NTP (UDP) -----");
 
   // 0) Проверяем Wi-Fi
   if (WiFi.status() != WL_CONNECTED) {
@@ -78,81 +78,58 @@ DateTime syncRTC() {
     return getCurrentTime();
   }
 
-  // 1) Сбрасываем системное время ESP32, чтобы избежать ложных NTP-ответов
-  struct timeval tv = {0};
-  settimeofday(&tv, nullptr);
+  DateTime ntpTime;
+  bool success = false;
 
-  // 2) Перебираем NTP-серверы
+  // 1) Перебираем NTP-серверы
   for (int i = 0; i < NTP_SERVER_COUNT; i++) {
     Serial.print("🌐 NTP попытка: ");
     Serial.println(NTP_SERVERS[i]);
 
-    // Запуск NTP через configTime
-    configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVERS[i]);
-
-    // 3) Ждём реального ответа NTP (до 10 секунд)
-    Serial.print("⏳ Ждём NTP");
-    int tries = 0;
-    while (!getLocalTime(&timeinfo) && tries < 50) {
-      Serial.print(".");
-      delay(200);
-      tries++;
+    if (getNtpTime(NTP_SERVERS[i], ntpTime)) {
+      Serial.println("✅ NTP ответил");
+      success = true;
+      break;
+    } else {
+      Serial.println("❌ NTP не ответил");
     }
-
-    if (!getLocalTime(&timeinfo)) {
-      Serial.println(" ❌ NTP не ответил");
-      continue;  // пробуем следующий сервер
-    }
-
-    Serial.println(" ✅");
-
-    // 4) Преобразуем в DateTime
-    DateTime ntpTime(
-      timeinfo.tm_year + 1900,
-      timeinfo.tm_mon + 1,
-      timeinfo.tm_mday,
-      timeinfo.tm_hour,
-      timeinfo.tm_min,
-      timeinfo.tm_sec
-    );
-
-    // 5) Если RTC есть — обновляем его
-    if (rtcAvailable) {
-      DateTime rtcTime = rtc.now();
-      long diff = ntpTime.unixtime() - rtcTime.unixtime();
-
-      Serial.print(ntpTime.timestamp());
-      Serial.print(";📊 Разница RTC vs NTP: ");
-      Serial.print(diff);
-      Serial.println(" сек");
-
-      if (abs(diff) > 1) {
-        rtc.adjust(ntpTime);
-        Serial.print(ntpTime.timestamp());
-        Serial.println(";✅ RTC синхронизировано");
-      } else {
-        Serial.println("⏱ RTC уже точное");
-      }
-    }
-
-    // 6) Обновляем виртуальные часы
-    baseMillis = millis();
-    baseDateTime = ntpTime;
-    timeSource = "NTP";
-
-    Serial.print(ntpTime.timestamp());
-    Serial.println(";✅ Старт завершён. 🕰️ Текущее время: "
-                   + ntpTime.timestamp(DateTime::TIMESTAMP_DATE) + " "
-                   + ntpTime.timestamp(DateTime::TIMESTAMP_TIME));
-
-    return ntpTime;
   }
 
-  // 7) Если все NTP-серверы недоступны
-  Serial.println("❌ Все NTP-серверы недоступны — fallback");
+  if (!success) {
+    Serial.println("❌ Все NTP-серверы недоступны — fallback");
+    timeSource = rtcAvailable ? "RTC" : "MILLIS";
+    return getCurrentTime();
+  }
 
-  timeSource = rtcAvailable ? "RTC" : "MILLIS";
-  return getCurrentTime();
+  // 2) Если RTC есть — сверяем и при необходимости обновляем
+  if (rtcAvailable) {
+    DateTime rtcTime = rtc.now();
+    long diff = ntpTime.unixtime() - rtcTime.unixtime();
+
+    Serial.print(ntpTime.timestamp());
+    Serial.print(";📊 Разница RTC vs NTP: ");
+    Serial.print(diff);
+    Serial.println(" сек");
+
+    if (abs(diff) > 1) {
+      rtc.adjust(ntpTime);
+      Serial.print(ntpTime.timestamp());
+      Serial.println(";✅ RTC синхронизировано");
+    } else {
+      Serial.println("⏱ RTC уже точное");
+    }
+  }
+
+  // 3) Обновляем виртуальные часы
+  baseMillis = millis();
+  baseDateTime = ntpTime;
+  timeSource = "NTP";
+
+  Serial.print(ntpTime.timestamp());
+  Serial.println(";✅ Старт завершён. 🕰️ Текущее время: "
+                 + ntpTime.timestamp(DateTime::TIMESTAMP_DATE) + " "
+                 + ntpTime.timestamp(DateTime::TIMESTAMP_TIME));
+  return ntpTime;
 }
 // -----------------------------------------------------------------------------
 // Ежечасная синхронизация (на 45‑й минуте, если FSM в IDLE)
@@ -176,5 +153,53 @@ void handleHourlySync(DateTime now) {
       Serial.println("⚠️ Синхронизация не удалась");
     }
   }
+}
+
+// ---------- Минимальный UDP‑NTP клиент ----------
+WiFiUDP ntpUDP;
+bool getNtpTime(const char* server, DateTime& outTime) {
+  const int NTP_PACKET_SIZE = 48;
+  byte packetBuffer[NTP_PACKET_SIZE];
+
+  // 1) Очищаем буфер
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+
+  // 2) Формируем NTP-запрос
+  packetBuffer[0] = 0b11100011;  // LI, Version, Mode
+
+  // 3) Резолвим сервер
+  IPAddress ntpIP;
+  if (!WiFi.hostByName(server, ntpIP)) {
+    Serial.println("❌ DNS не смог резолвить сервер");
+    return false;
+  }
+
+  // 4) Отправляем пакет
+  ntpUDP.begin(2390);  // локальный порт
+  ntpUDP.beginPacket(ntpIP, 123);
+  ntpUDP.write(packetBuffer, NTP_PACKET_SIZE);
+  ntpUDP.endPacket();
+
+  // 5) Ждём ответ (до 1000 мс)
+  uint32_t start = millis();
+  while (millis() - start < 1000) {
+    int size = ntpUDP.parsePacket();
+    if (size >= NTP_PACKET_SIZE) {
+      ntpUDP.read(packetBuffer, NTP_PACKET_SIZE);
+
+      // 6) Извлекаем время (секунды с 1900 года)
+      unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
+      unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
+      unsigned long secsSince1900 = (highWord << 16) | lowWord;
+
+      // 7) Переводим в Unix-время
+      const unsigned long seventyYears = 2208988800UL;
+      unsigned long epoch = secsSince1900 - seventyYears;
+      outTime = DateTime(epoch + GMT_OFFSET_SEC + DAYLIGHT_OFFSET_SEC); // Получили время и добавили смещения часового пояса и слетнее время
+      return true;
+    }
+    delay(10);
+  }
+  return false;  // таймаут
 }
 // Конец wi-fi.cpp
