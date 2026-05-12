@@ -94,22 +94,21 @@ void loopMain() {
   DateTime now = getCurrentTime();
   int rtcMinute = now.minute();
   int currentSecond = now.second();
-  bool microSwitchTriggered = microSw();  // задний фронт — сработка
 
   int hour = now.hour() % 12;  // Приводим к 12-часовому формату
   if (hour == 0) hour = 12;
 
   // Вызов боя каждые полчаса (отложенный)
-if ((rtcMinute == 0 || rtcMinute == 30) && rtcMinute != lastStrikeMinute) {
+  if ((rtcMinute == 0 || rtcMinute == 30) && rtcMinute != lastStrikeMinute) {
 
     if (rtcMinute == 0) {
-        pendingChimes = hour;   // флаг: «нужно ударить "hour" раз»
+      pendingChimes = hour;  // флаг: «нужно ударить "hour" раз»
     } else {
-        pendingChimes = 1;      // один удар в половину
+      pendingChimes = 1;  // один удар в половину
     }
 
     lastStrikeMinute = rtcMinute;
-}
+  }
   // Двигаем шаговик, если нужно
   stepper.run();
 
@@ -118,8 +117,8 @@ if ((rtcMinute == 0 || rtcMinute == 30) && rtcMinute != lastStrikeMinute) {
   //   stepper.disableOutputs();
   // }
 
-  handleHourlySync(now);                                                 // Синхронизация каждый час (определена в wi-fi.cpp)
-  arrowFSM_update(now, rtcMinute, currentSecond, microSwitchTriggered);  // Обновление FSM стрелок
+  handleHourlySync(now);                           // Синхронизация каждый час (определена в wi-fi.cpp)
+  arrowFSM_update(now, rtcMinute, currentSecond);  // Обновление FSM стрелок
 
   otaLoop();          // Обработка OTA
   debugSerialLoop();  // единая точка входа для всех команд из Serial

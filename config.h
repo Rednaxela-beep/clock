@@ -45,7 +45,6 @@ extern int transitionTimeSec;          // время перехода
 extern const float correctionPercent;  // Небольшая корректировка положения по микрику
 extern const int correctionOffset;     // То же самое, только в абс.значении
 extern int lastStrikeMinute;           // Глобальная переменная для  предотвращения повтора боя часов
-extern bool microSwitchTriggered;
 // ---------------- NTP ----------------
 extern const char* NTP_SERVERS[];
 extern const int NTP_SERVER_COUNT;

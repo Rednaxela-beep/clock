@@ -12,7 +12,6 @@
 extern ArrowState arrowState;
 extern int StepsForMinute;
 extern int tailAngle;
-// extern bool microSwitchTriggered;
 
 void debugLogf(const char* fmt, ...) {
   char msgBuf[128];
@@ -42,25 +41,21 @@ static String uptimeStr() {
   return String(buf);
 }
 
-// ====== Функция возвращает параметны приложения по команде 'd' в serial monitor ======
-void debugDump(DateTime now, bool microSwitchTriggered) {
+void debugDump(DateTime now) { //Функция возвращает параметны приложения по команде 'd' в serial monitor
   String line;
   line = String("🕰 RTC: ") + String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());
   Serial.println(line);
-
   line = String("⏱ lastRtcMinute: ") + lastRtcMinute;  // Добавлено 27 сентября
   Serial.println(line);
-
   line = String("🎯 Current Position: ") + stepper.currentPosition();
   Serial.println(line);
-
   line = String("📍 stepperMaxSpeed: ") + stepperMaxSpeed;
   Serial.println(line);
-
   line = String("📐 stepperAcceleration: ") + stepperAcceleration;
   Serial.println(line);
-
   line = String("🦶 StepsForMinute: ") + StepsForMinute;
+  Serial.println(line);
+  line = String("🔘 MicroSW raw: ") + digitalRead(MICROSW_PIN);
   Serial.println(line);
 }
 
@@ -73,7 +68,6 @@ void debugSerialLoop() {
 
   if (cmd == "d") {
     DateTime now = getCurrentTime();
-    debugDump(now, microSwitchTriggered);
     return;
   }
 
