@@ -29,6 +29,13 @@ void publishMetrics(const DateTime& now) {
 
   float loopMs = roundf((avgLoopUs / 1000.0f) * 100) / 100;
 
+  char corrBuf[16];
+  if (isnan(lastCorrectionMinutes)) {
+    strcpy(corrBuf, "null");
+  } else {
+    snprintf(corrBuf, sizeof(corrBuf), "%.1f", lastCorrectionMinutes);
+  }
+
   snprintf(payload, sizeof(payload),
            "{"
            "\"rtc\":\"%02d:%02d:%02d\","
@@ -40,7 +47,8 @@ void publishMetrics(const DateTime& now) {
            "\"ram_min_free\":%u,"
            "\"ram_free_percent\":%.1f,"
            "\"ram_min_percent\":%.1f,"
-           "\"fsm\":\"%s\""
+           "\"fsm\":\"%s\","
+           "\"corr_min\": %s"
            "}",
            now.hour(), now.minute(), now.second(),
            millis() / 1000,
@@ -51,8 +59,8 @@ void publishMetrics(const DateTime& now) {
            ramMin,
            ramFreePercent,
            ramMinPercent,
-           fsmToText(arrowState, (now.minute() + 1) % 60, pendingChimes)
-           );
+           fsmToText(arrowState, (now.minute() + 1) % 60, pendingChimes),
+           corrBuf);
 
   client.publish(MQTT_TOPIC_METRICS, payload);
 }

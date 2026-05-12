@@ -20,6 +20,7 @@ extern int correctionDeltaSteps;
 extern bool stepperEnabled;
 
 extern ArrowState arrowState;
+extern float lastCorrectionMinutes;
 void SET_STATE(ArrowState newState, DateTime now); // Прототип функции состояния
 // FSM минутной стрелки
 void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond, bool microSwitchState);
