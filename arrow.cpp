@@ -17,8 +17,8 @@ static bool zeroTransitionActive = false;      // идём на минуту 00
 static bool microTriggeredDuringMove = false;  // микрик сработал во время движения
 
 bool stepperEnabled = false;
-long correctionSteps = 0;
 float lastCorrectionMinutes = NAN;  // Последняя коррекция. NAN = не было коррекции
+long correctionSteps = 0;
 
 DateTime arrowStateChangedAt;
 
@@ -91,13 +91,19 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond) {
 
         invalidSecond = currentSecond;
 
-        Serial.printf("%02d:%02d:%02d ▶️ Переход на минуту %02d\n",
+        Serial.printf("%02d:%02d:%02d ▶️ Переход на %02d\n",
                       now.hour(), now.minute(), now.second(), targetMinute);
 
         zeroTransitionActive = (targetMinute == 0);
         microTriggeredDuringMove = false;
 
         stepper.moveTo(stepper.currentPosition() + StepsForMinute);
+        moveStartPosition = stepper.currentPosition();  // запомним стартовую позицию для этого минутного хода
+        stepAtTriggerPos = LONG_MIN;                    // ещё не зафиксирован
+        lagStartPosition = 0;
+        lagStepsToTrigger = 0;
+        errorSteps = 0;
+        errorMinutes = NAN;
         SET_STATE(MOVING, now);
       }
       break;
@@ -107,6 +113,15 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond) {
       if (microSw()) {
         microTriggeredDuringMove = true;
         microTriggerMinute = targetMinute;
+
+        // Если это первое срабатывание микрика в этом минутном ходе — зафиксируем позицию
+        if (stepAtTriggerPos == LONG_MIN) {
+          long rel = stepper.currentPosition() - moveStartPosition;  // относительная позиция от начала хода
+          long absSteps = abs(StepsForMinute);
+          // нормализуем в диапазон 0..absSteps-1
+          long posWithin = ((rel % absSteps) + absSteps) % absSteps;
+          stepAtTriggerPos = posWithin;
+        }
       }
 
       if (!stepper.isRunning()) {  // движение завершилось
@@ -123,7 +138,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond) {
         // --- ИДЕАЛЬНЫЙ НОЛЬ ---
         if (zeroTransitionActive && microTriggeredDuringMove && microTriggerMinute == 0) {
 
-          Serial.println("Идеальный ноль → точная доводка");
+          Serial.println("Нормальный ноль → точная доводка");
           SET_STATE(CORRECT_FINE, now);
           return;
         }
@@ -136,7 +151,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond) {
           return;
         }
 
-        // --- НОРМАЛЬНЫЙ НОЛЬ после Нормальный ноль после - сработки не ожидается ---
+        // --- НОРМАЛЬНЫЙ НОЛЬ  после корекции опережения - сработки не ожидается ---
         if (zeroTransitionActive && !microTriggeredDuringMove && correctionThisHour) {
 
           Serial.println("Нормальный ноль после корекции опережения");
@@ -159,8 +174,7 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond) {
 
         // --- 0) Первый вход в состояние ---
         if (!started) {
-          // 0a) Микрик мог сработать ПРЯМО после MOVING
-          if (microSw()) {
+          if (microSw()) {  // 0a) Микрик мог сработать ПРЯМО после MOVING
             Serial.println("Микрик сработал сразу после MOVING — это НЕ лаг, выполняем точную доводку");
             microTriggeredDuringMove = false;
             correctionThisHour = false;
@@ -168,45 +182,61 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond) {
             return;
           }
           // 0b) Запускаем коррекцию
-          Serial.println("Коррекция отставания: начинаем коррекцию");
-
+          Serial.println("Начинаем коррекцию отставания");
+          stepper.setMaxSpeed(stepperMaxSpeed / 2);  // Уменьшаем скорость вдвое, чтобы не перелетать микрик
           targetSteps = StepsForMinute * 15;
           microTriggeredDuringMove = false;
 
           stepper.move(targetSteps);
           started = true;
+          lagStartPosition = stepper.currentPosition();
           return;
         }
 
-        if (stepper.isRunning()) {  // --- 1) Ловим микрик во время движения ---
-
+        if (stepper.isRunning()) {
           if (microSw()) {
-            Serial.println("Коррекция отставания: микрик сработал — здесь СТОП!");
-            float movedSteps = stepper.currentPosition();
-            correctionSteps = movedSteps;  // Запоминаем к-во шагов корректировки для json
-            lastCorrectionMinutes = movedSteps / (float)StepsForMinute;
+            Serial.println("Коррекция отставания: микрик сработал — СТОП!");
 
+            // Сколько шагов прошло с начала догонки до срабатывания
+            long movedSinceLagStart = stepper.currentPosition() - lagStartPosition;  // может быть положительным
+            long absSteps = abs(StepsForMinute);
+
+            // posWithinMinute — позиция срабатывания внутри виртуального минутного хода
+            long posWithinMinute = ((movedSinceLagStart % absSteps) + absSteps) % absSteps;
+
+            // Запомним для статистики
+            stepAtTriggerPos = posWithinMinute;
+            lagStepsToTrigger = movedSinceLagStart;
+
+            // Вычислим истинную ошибку относительно ideal trigger point
+            float triggerPointIdealAbs = absSteps * (1.0f - correctionPercent);
+            errorSteps = (long)stepAtTriggerPos - (long)round(triggerPointIdealAbs);
+            errorMinutes = (float)errorSteps / (float)absSteps;
+
+            // Теперь применяем остановку и подготовку как раньше
             stepper.stop();
             while (stepper.isRunning()) stepper.run();
-
             stepper.disableOutputs();
             delay(5);
             stepper.enableOutputs();
-
             stepper.setCurrentPosition(0);
+            stepper.setMaxSpeed(stepperMaxSpeed);  // ВОЗВРАЩАЕМ скорость
             started = false;
             microTriggeredDuringMove = false;
             correctionThisHour = false;
 
+            // Для applied correction: сколько шагов мы фактически прошли в догонке
+            correctionSteps = lagStepsToTrigger;
+            lastCorrectionMinutes = (float)correctionSteps / (float)absSteps;
+
             SET_STATE(CORRECT_FINE, now);
             return;
           }
-
           return;
         }
 
-        // --- 2) Движение завершилось, но микрик НЕ сработал ---
-        Serial.println("❌ ERROR: Lag correction exceeded 15 minutes!");
+        Serial.println("❌ СТОП: отставание более чем на 15 минут!");  // Движение завершилось, но микрик НЕ сработал
+        stepper.setMaxSpeed(stepperMaxSpeed);                         // ВОЗВРАЩАЕМ скорость
         started = false;
         microTriggeredDuringMove = false;
         SET_STATE(IDLE, now);
@@ -217,19 +247,19 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond) {
       {
         static bool started = false;
         static long targetSteps = 0;
-        static int advanceMinutes = 0;  // сохранени минут корректировки
+        static int advanceMinutes = 0;  // сохраняем минуты корректировки
 
         if (!started) {
-
-          int advanceMinutes = 60 - microTriggerMinute;
+          // Сколько минут стрелка убежала вперёд
+          advanceMinutes = 60 - microTriggerMinute;
           if (advanceMinutes <= 0 || advanceMinutes > 15)
             advanceMinutes = 1;
 
-          targetSteps =
-            -(advanceMinutes * StepsForMinute) + (long)(StepsForMinute * correctionPercent);
+          // Чистый откат назад на advanceMinutes минут
+          targetSteps = -(advanceMinutes * StepsForMinute);
 
-          Serial.printf("Коррекция опережения: откат назад %d мин + доводка %.0f%% = %ld шагов\n",
-                        advanceMinutes, correctionPercent * 100, targetSteps);
+          Serial.printf("Коррекция опережения: откат назад %d мин = %ld шагов\n",
+                        advanceMinutes, targetSteps);
 
           stepper.move(targetSteps);
           started = true;
@@ -238,28 +268,54 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond) {
 
         if (stepper.isRunning())
           return;
+
+        // Движение завершено
         stepper.setCurrentPosition(0);
         correctionThisHour = true;
         microTriggerMinute = -1;
         started = false;
 
-        correctionSteps = targetSteps;                                  // Шаги для отправки в json
-        lastCorrectionMinutes = -(advanceMinutes - correctionPercent);  // Сохраняем посл.коррекцию для json (со знаком минус)
-        Serial.println("Коррекция опережения завершена");
-        SET_STATE(IDLE, now);
+        // Фиксируем реальную коррекцию опережения
+        correctionSteps = targetSteps;            // шаги для json
+        lastCorrectionMinutes = -advanceMinutes;  // минуты со знаком минус
+
+        Serial.println("Коррекция опережения завершена, переходим к точной доводке");
+        // После того как движение завершено и мы знаем, что было опережение
+        // stepAtTriggerPos должен быть уже зафиксирован в MOVING (позиция внутри минутного хода)
+        if (stepAtTriggerPos != LONG_MIN) {
+          long absSteps = abs(StepsForMinute);
+          float triggerPointIdealAbs = absSteps * (1.0f - correctionPercent);
+
+          // errorSteps = фактическая позиция - идеальная позиция (в шагах)
+          errorSteps = (long)stepAtTriggerPos - (long)round(triggerPointIdealAbs);
+          errorMinutes = (float)errorSteps / (float)absSteps;
+        } else {  // На всякий случай — если не зафиксировали (маловероятно), пометим NAN
+          errorSteps = 0;
+          errorMinutes = NAN;
+        }
+
+        correctionSteps = targetSteps;            // Теперь applied correction (что мы сделали) уже у тебя в correctionSteps/lastCorrectionMinutes
+        lastCorrectionMinutes = -advanceMinutes;  // как у тебя было
+
+        SET_STATE(CORRECT_FINE, now);  // всегда доводка до нуля
         return;
       }
 
-    case CORRECT_FINE:  // ----------- Точная доводка до нуля -----------
+    case CORRECT_FINE:
       {
-        long fineSteps = (long)(StepsForMinute * correctionPercent);
-        correctionSteps = fineSteps;                // для отправки в json
-        lastCorrectionMinutes = correctionPercent;  // для отправки в json
+        long fineSteps = (long)(abs(StepsForMinute) * correctionPercent);
+
+        // Если до этого не было НИ одной грубой коррекции — фиксируем "нулевую"
+        if (isnan(lastCorrectionMinutes)) {
+          lastCorrectionMinutes = 0.0f;
+          correctionSteps = 0;
+        }
+
         Serial.printf("CORRECT_FINE: доводка %ld шагов (%.0f%%)\n",
                       fineSteps, correctionPercent * 100);
 
-        stepper.move(fineSteps);
-
+        // НЕ меняем correctionSteps и lastCorrectionMinutes — это не грубая коррекция
+        stepper.move((StepsForMinute >= 0) ? fineSteps : -fineSteps);
         while (stepper.isRunning())
           stepper.run();
 
@@ -331,7 +387,7 @@ const char* fsmToText(ArrowState s, int targetMinute, int pendingChimes) {
       return "Ожидание";
 
     case MOVING:
-      snprintf(buf, sizeof(buf), "Переход на минуту %02d", targetMinute);
+      snprintf(buf, sizeof(buf), "Минута %02d", targetMinute);
       return buf;
 
     case CORRECT_LAG:

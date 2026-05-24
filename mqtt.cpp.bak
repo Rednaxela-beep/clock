@@ -11,6 +11,8 @@
 extern uint32_t avgLoopUs;           // Среднее время цикла
 extern long correctionSteps;         // Последняя коррекция в шагах
 extern float lastCorrectionMinutes;  // Последняя коррекция в минутах
+extern long errorSteps;              // истинная ошибка в шагах (signed)
+extern float errorMinutes;           // истинная ошибка в минутах (NAN если неизвестна)
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -46,7 +48,10 @@ void publishEvent(const char* msg) {
            now.hour(), now.minute(), now.second(),
            msg);
 
-  client.publish(MQTT_TOPIC_EVENT, payload);
+  bool ok = client.publish(MQTT_TOPIC_EVENT, payload);
+  Serial.printf("[MQTT] publish EVENT -> %s (len=%u)\n",
+                ok ? "OK" : "FAIL",
+                strlen(payload));
 }
 
 // Публикация настроек (редко меняющиеся / постоянные параметры)
@@ -56,7 +61,7 @@ void publishSettings() {
   if (!client.connected()) return;
   if (settingsPublished) return;
 
-  char payload[256];
+  char payload[768];
 
   // Предполагаем, что эти константы определены в config.h:
   // PROJECT_VERSION, BUILD_DATE, BUILD_TIME,
@@ -67,8 +72,8 @@ void publishSettings() {
            "\"build_date\":\"%s\","
            "\"build_time\":\"%s\","
            "\"steps_per_minute\":%d,"
-           "\"speed\":%d,"
-           "\"accel\":%d"
+           "\"speed\":%.1f,"
+           "\"accel\":%.1f"
            "}",
            PROJECT_VERSION,
            BUILD_DATE,
@@ -77,7 +82,11 @@ void publishSettings() {
            stepperMaxSpeed,
            stepperAcceleration);
 
-  client.publish(MQTT_TOPIC_SETTINGS, payload);
+  bool ok = client.publish(MQTT_TOPIC_SETTINGS, payload);
+  Serial.printf("[MQTT] publish SETTINGS -> %s (len=%u)\n",
+                ok ? "OK" : "FAIL",
+                strlen(payload));
+
   settingsPublished = true;
 }
 
@@ -86,6 +95,9 @@ void publishSettings() {
 // Инициализация MQTT-клиента
 void setupMQTT() {
   client.setServer(MQTT_SERVER, MQTT_PORT);
+  client.publish("ancient_clock/debug", "hello", false);
+  Serial.printf("[MQTT] DEBUG publish -> %s\n",
+                client.publish("ancient_clock/debug", "hello") ? "OK" : "FAIL");
 }
 
 // Неблокирующее переподключение к MQTT
@@ -146,7 +158,7 @@ void publishMetrics(const DateTime& now) {
   if (WiFi.status() != WL_CONNECTED) return;
   if (!client.connected()) return;
 
-  char payload[384];
+  char payload[1024];
 
   uint32_t ramFree = heap_caps_get_free_size(MALLOC_CAP_DEFAULT);
   uint32_t ramMin = heap_caps_get_minimum_free_size(MALLOC_CAP_DEFAULT);
@@ -164,33 +176,47 @@ void publishMetrics(const DateTime& now) {
     snprintf(corrBuf, sizeof(corrBuf), "%.2f", lastCorrectionMinutes);
   }
 
+  char errBuf[16];
+  if (isnan(errorMinutes)) {
+    strcpy(errBuf, "null");
+  } else {
+    snprintf(errBuf, sizeof(errBuf), "%.3f", errorMinutes);
+  }
+
   snprintf(payload, sizeof(payload),
            "{"
            "\"rtc\":\"%02d:%02d:%02d\","
            "\"uptime\":%lu,"
            "\"loop_ms\":%.2f,"
            "\"rssi\":%d,"
-           "\"correctionSteps\":%ld,"
+           "\"error_steps\":%ld,"
+           "\"error_min\":%s,"
+           "\"applied_steps\":%ld,"
+           "\"applied_min\":%s,"
            "\"ram_free\":%u,"
            "\"ram_min_free\":%u,"
            "\"ram_free_percent\":%.1f,"
            "\"ram_min_percent\":%.1f,"
-           "\"fsm\":\"%s\","
-           "\"corr_min\":%s"
+           "\"fsm\":\"%s\""
            "}",
            now.hour(), now.minute(), now.second(),
            millis() / 1000,
            loopMs,
            WiFi.RSSI(),
+           errorSteps,
+           errBuf,
            correctionSteps,
+           corrBuf,
            ramFree,
            ramMin,
            ramFreePercent,
            ramMinPercent,
-           fsmToText(arrowState, (now.minute() + 1) % 60, pendingChimes),
-           corrBuf);
+           fsmToText(arrowState, (now.minute() + 1) % 60, pendingChimes));
 
-  client.publish(MQTT_TOPIC_METRICS, payload);
+  bool ok = client.publish(MQTT_TOPIC_METRICS, payload);
+  Serial.printf("[MQTT] publish METRICS -> %s (len=%u)\n",
+                ok ? "OK" : "FAIL",
+                strlen(payload));
 }
 
 // Обёртка для client.loop(), чтобы вызывать из main.cpp

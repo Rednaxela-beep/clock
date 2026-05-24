@@ -25,6 +25,8 @@
 #define MQTT_SERVER "blog.umd.by"
 #define MQTT_PORT   1883
 #define MQTT_TOPIC_METRICS "ancient_clock/metrics"
+#define MQTT_TOPIC_SETTINGS "ancient_clock/settings"
+#define MQTT_TOPIC_EVENT    "ancient_clock/event"
 
 // Флаги состояния, переменные и метки времени
 const unsigned long DEBOUNCE_DELAY = 10;  // Антидребезг (мс)
@@ -43,8 +45,15 @@ extern float stepperAcceleration;      // Ускорение (шагов/сек�
 extern int stepIntervalSec;            // интервал между стартами
 extern int transitionTimeSec;          // время перехода
 extern const float correctionPercent;  // Небольшая корректировка положения по микрику
-extern const int correctionOffset;     // То же самое, только в абс.значении
+// extern const int correctionOffset;     // То же самое, только в абс.значении
 extern int lastStrikeMinute;           // Глобальная переменная для  предотвращения повтора боя часов
+// Позиции и диагностика для коррекции
+extern long moveStartPosition;
+extern long stepAtTriggerPos;
+extern long lagStartPosition;
+extern long lagStepsToTrigger;
+extern long errorSteps;
+extern float errorMinutes;
 // ---------------- NTP ----------------
 extern const char* NTP_SERVERS[];
 extern const int NTP_SERVER_COUNT;

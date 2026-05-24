@@ -25,3 +25,4 @@ void setupMain();
 void loopMain();
 
 void connectToWiFi();  // Подключение к Wi‑Fi
+DateTime getCurrentTime();
