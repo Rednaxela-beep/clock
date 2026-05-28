@@ -110,18 +110,39 @@ void arrowFSM_update(DateTime now, int rtcMinute, int currentSecond) {
 
     case MOVING:  // ----------- Движение -----------
       stepper.run();
+
       if (microSw()) {
         microTriggeredDuringMove = true;
         microTriggerMinute = targetMinute;
 
-        // Если это первое срабатывание микрика в этом минутном ходе — зафиксируем позицию
         if (stepAtTriggerPos == LONG_MIN) {
-          long rel = stepper.currentPosition() - moveStartPosition;  // относительная позиция от начала хода
+          long rel = stepper.currentPosition() - moveStartPosition;
           long absSteps = abs(StepsForMinute);
-          // нормализуем в диапазон 0..absSteps-1
           long posWithin = ((rel % absSteps) + absSteps) % absSteps;
           stepAtTriggerPos = posWithin;
         }
+
+        // ОСТАНАВЛИВАЕМ ДВИЖЕНИЕ СРАЗУ
+        stepper.stop();
+        while (stepper.isRunning()) stepper.run();
+
+        // --- ОПЕРЕЖЕНИЕ ---
+        if (microTriggerMinute >= 45 && microTriggerMinute <= 59) {
+          Serial.printf("⚡ Опережение: микрик сработал на минуте %02d\n", microTriggerMinute);
+          SET_STATE(CORRECT_ADVANCE, now);
+          return;
+        }
+
+        // --- НОРМАЛЬНЫЙ НОЛЬ ---
+        if (targetMinute == 0) {
+          Serial.println("Нормальный ноль → точная доводка");
+          SET_STATE(CORRECT_FINE, now);
+          return;
+        }
+
+        // --- Обычное срабатывание в минуте 1..44 ---
+        SET_STATE(CORRECT_FINE, now);
+        return;
       }
 
       if (!stepper.isRunning()) {  // движение завершилось
