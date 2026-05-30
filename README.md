@@ -9,7 +9,7 @@
 ## 🛠️ Аппаратная часть
 
 - **"Цифровое сердце"**: [SeedStudio XIAO ESP32S3](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/Xiao_ESP32-FrontV.png)  
-- **RTC модуль**: ![DS3231 mini](https://raw.githubusercontent.com/Rednaxela-beep/clock/master/assets/photos/e-components/RTC_DS3231.jpg)
+**RTC модуль**: [DS3231 mini](https://raw.githubusercontent.com/Rednaxela-beep/clock/master/assets/photos/e-components/RTC_DS3231.jpg)
 - **Шаговый мотор стрелок**: [28BYJ-48 + ULN2003](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/28BYJ-48%2BULN2003.png)  
 - **Сервопривод боя**: [MG90](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/mg90servo.jpeg)  
 - **[Микрик-концевик](https://github.com/Rednaxela-beep/clock/blob/master/assets/photos/e-components/endstop.png)**: для корректировки стрелки  
