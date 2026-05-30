@@ -1,6 +1,5 @@
 // arrow.h
 #pragma once
-#include <Arduino.h>
 #include <RTClib.h>
 #include "config.h"   // StepsForMinute, пины/настройки, константы
 

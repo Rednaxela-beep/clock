@@ -1,7 +1,5 @@
 // chimes.h Объвление нужных для боя переменных 
 #pragma once
-
-#include <Arduino.h>
 #include <ESP32Servo.h>
 
 extern Servo mg90; // Сервообъект создаётся в main.cpp, но используется здесь

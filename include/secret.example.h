@@ -1,6 +1,5 @@
 // secret.example — пример оформления secret.h
 #pragma once
-
 #define WIFI_SSID     "MyHomeWiFi"
 #define WIFI_PASSWORD "SuperSecretPass"
 

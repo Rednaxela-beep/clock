@@ -1,12 +1,12 @@
 // config.h Конфигурация пинов и основных переменных
 #pragma once
 #define PROJECT_NAME "Ancient Clock Digital Heart"
-#define PROJECT_VERSION "1.3.1 Beta"  // Версия проекта
+#define PROJECT_VERSION "1.4.0"  // Версия проекта
 #define BUILD_DATE __DATE__      // Дата и Время сборки
 #define BUILD_TIME __TIME__      // автоматически подставляется при компиляции
 
 #include <cstdint>    //
-#include <Arduino.h>  // даёт uint8_t, int32_t и т.д.
+  // даёт uint8_t, int32_t и т.д.
 #include "secret.h"   // Подключаем приватные данные
 #include <RTClib.h>   //  тип DateTime
 // ====== Шаговый мотор стрелок (28BYJ-48 через ULN2003) ======

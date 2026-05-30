@@ -1,6 +1,5 @@
 //main.h Важные объявления
 #pragma once
-// #include <Arduino.h>
 #include <RTClib.h>        // для DateTime
 #include <ESP32Servo.h>    // чтобы Servo был известен
 #include <AccelStepper.h>  // чтобы AccelStepper был известен

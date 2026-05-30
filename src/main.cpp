@@ -2,7 +2,6 @@
 #include "mqtt.h"  // заголовочный файл mqtt.h
 #include <Arduino.h>
 #include <time.h>  // для configTime, если понадобится позже
-
 #include "wi-fi.h"
 #include "main.h"
 #include <ESP32Servo.h>
@@ -29,7 +28,7 @@ uint32_t avgLoopUs = 0;
 
 // -----------------------------------------------------------------------------
 // Инициализация системы
-void setupMain() {
+void setup() {
   Serial.begin(115200);
   delay(500);  // Пауза для установки соединения с портом
 
@@ -80,7 +79,7 @@ void setupMain() {
 }
 // -----------------------------------------------------------------------------
 // Основной цикл
-void loopMain() {
+void loop() {
   extern uint32_t avgLoopUs;
   static uint32_t lastLoopUs = 0;
 

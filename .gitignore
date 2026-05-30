@@ -5,6 +5,7 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+README
 # ---- End PlatformIO gitignore ---
 *.ps1
 secret.h
@@ -13,3 +14,5 @@ build/
 *.elf
 *.map
 *.bak
+*.lnk
+*.code-workspace 

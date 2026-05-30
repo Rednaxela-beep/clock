@@ -1,6 +1,5 @@
 // debug.h
 #pragma once
-#include <Arduino.h>
 #include <RTClib.h>
 #include "arrow.h"  // enum ArrowState и extern arrowState уже здесь
 #include "config.h"

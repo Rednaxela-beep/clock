@@ -1,6 +1,5 @@
 // mqtt.h
 #pragma once
-#include <Arduino.h>  // чтобы был доступен тип String
 #include <RTClib.h>
 #include <math.h>
 
